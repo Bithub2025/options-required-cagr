@@ -4,28 +4,31 @@ A LEAPS analysis tool that calculates the compound annual growth rate (CAGR) a s
 
 ## What it does
 
-- Enter a ticker → see LEAPS chain
-- **Picks** mode: hand-pick (date, strike) combos to compare side-by-side
-- **Sweep** mode: full strike chain at one expiration, color-graded by CAGR
-- Both modes show: cost, breakeven, leverage, $/day, required CAGR
-- BEST / WORST / BALANCED / TIME badges to surface the relevant winners
+- Pick any ticker → app pulls live spot price + LEAPS option chain from Yahoo Finance
+- **Picks** mode: curate a comparison set of (expiration, strike) combos
+- **Sweep** mode: full strike chain at one expiration, color-graded by required CAGR
+- Real-time CAGR, leverage, $/day, breakeven calculations
+- BEST / WORST / BALANCED / TIME / ATM badges
 
 ## Live data
 
-- Spot prices are fetched live from Yahoo Finance via `/api/quote`
-- IV and IV Rank still come from hardcoded defaults (can be overridden manually)
-- The "LIVE" pill in the ticker control shows when real data is loaded
+- **Spot prices** — live from Yahoo Finance via `/api/quote`
+- **Option chain** — real bid/ask/last per strike from Yahoo via `/api/options`
+- **Real expirations** — dynamically populated from Yahoo's available LEAPS for each ticker
+- **Black-Scholes fallback** — when data is missing or hasn't loaded yet, prices are estimated locally
+- **REAL / EST indicators** — every row shows whether its price came from Yahoo or BS estimate
 
 ## Stack
 
 - Static HTML/CSS/JS (single file: `index.html`)
-- One Vercel serverless function: `api/quote.js`
-- Hosted on Vercel
+- Two Vercel serverless functions: `api/quote.js` and `api/options.js`
+- Hosted on Vercel with edge caching for Yahoo responses
 
 ## Roadmap
 
-- [x] Deploy mockup
-- [x] Add Vercel function to proxy Yahoo Finance for spot prices
-- [ ] Add Yahoo options chain endpoint for real bid/ask + IV
+- [x] Live spot prices from Yahoo
+- [x] Live option chain (bid/ask per strike)
+- [x] Dynamic expirations per ticker
+- [ ] Live IV per strike (for fallback BS calcs)
 - [ ] Compute IV Rank from 52-week IV history
 - [ ] Persist user's curated Picks list across visits

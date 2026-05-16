@@ -602,6 +602,10 @@ body {
 </div>
 
 <script>
+// =============================================================================
+//  STATE
+// =============================================================================
+
 const TICKERS = [
   { sym: 'TSLA', name: 'Tesla, Inc.',          spot: 450.00, iv: 55, ivr: 45 },
   { sym: 'MSTR', name: 'Strategy Inc.',        spot: 195.71, iv: 70, ivr: 60 },
@@ -622,6 +626,45 @@ const TICKERS = [
   { sym: 'SPY',  name: 'S&P 500 ETF',          spot: 580.00, iv: 15, ivr: 20 },
   { sym: 'QQQ',  name: 'NASDAQ-100 ETF',       spot: 500.00, iv: 18, ivr: 25 },
 ];
+
+// Hardcoded fallback expirations (when Yahoo hasn't loaded yet or fails)
+const FALLBACK_EXPIRATIONS = [
+  { unix: Math.floor(new Date('2026-12-18').getTime() / 1000), label: 'Dec 18, 2026' },
+  { unix: Math.floor(new Date('2027-01-15').getTime() / 1000), label: 'Jan 15, 2027' },
+  { unix: Math.floor(new Date('2027-06-18').getTime() / 1000), label: 'Jun 18, 2027' },
+  { unix: Math.floor(new Date('2027-12-17').getTime() / 1000), label: 'Dec 17, 2027' },
+  { unix: Math.floor(new Date('2028-01-21').getTime() / 1000), label: 'Jan 21, 2028' },
+  { unix: Math.floor(new Date('2028-06-16').getTime() / 1000), label: 'Jun 16, 2028' },
+  { unix: Math.floor(new Date('2028-12-15').getTime() / 1000), label: 'Dec 15, 2028' },
+];
+
+// Live data state — populated from Yahoo
+let liveData = {
+  symbol: 'TSLA',
+  expirations: FALLBACK_EXPIRATIONS.slice(),     // [{unix, label}]
+  chains: {},                                     // { unix: {calls, puts, fetchedAt} }
+  hasRealExpirations: false,                      // true once Yahoo returns
+};
+
+// Initial rows seeded with reasonable defaults around TSLA $450 area
+let rows = [
+  { expUnix: FALLBACK_EXPIRATIONS[0].unix, strike: 500 },
+  { expUnix: FALLBACK_EXPIRATIONS[1].unix, strike: 500 },
+  { expUnix: FALLBACK_EXPIRATIONS[3].unix, strike: 700 },
+  { expUnix: FALLBACK_EXPIRATIONS[1].unix, strike: 400 },
+  { expUnix: FALLBACK_EXPIRATIONS[1].unix, strike: 700 },
+  { expUnix: FALLBACK_EXPIRATIONS[1].unix, strike: 600 },
+  { expUnix: FALLBACK_EXPIRATIONS[2].unix, strike: 600 },
+  { expUnix: FALLBACK_EXPIRATIONS[4].unix, strike: 940 },
+];
+
+let editingIdx = null;
+let wheelValue = null;
+let mode = 'curated';
+
+// =============================================================================
+//  MATH HELPERS (unchanged)
+// =============================================================================
 
 function ncdf(x) {
   const a1=0.254829592, a2=-0.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429, p=0.3275911;
@@ -644,45 +687,10 @@ function strikeStep(spot) {
   if (spot < 1000) return 10;
   return 25;
 }
-
-const EXPIRATIONS = [
-  { label: 'Dec 18, 2026', date: new Date('2026-12-18') },
-  { label: 'Jan 15, 2027', date: new Date('2027-01-15') },
-  { label: 'Mar 19, 2027', date: new Date('2027-03-19') },
-  { label: 'Jun 18, 2027', date: new Date('2027-06-18') },
-  { label: 'Sep 17, 2027', date: new Date('2027-09-17') },
-  { label: 'Dec 17, 2027', date: new Date('2027-12-17') },
-  { label: 'Jan 21, 2028', date: new Date('2028-01-21') },
-  { label: 'Jun 16, 2028', date: new Date('2028-06-16') },
-  { label: 'Dec 15, 2028', date: new Date('2028-12-15') },
-];
-const TODAY = new Date('2026-05-16');
-function daysUntil(d) { return Math.round((d - TODAY) / (1000*60*60*24)); }
-
-// Populate exp dropdowns
-[document.getElementById('editExp'), document.getElementById('sweepExp')].forEach(sel => {
-  EXPIRATIONS.forEach((e, i) => {
-    const o = document.createElement('option');
-    o.value = i; o.textContent = e.label;
-    sel.appendChild(o);
-  });
-});
-document.getElementById('sweepExp').value = 8; // Default to Dec 15 2028 (longest LEAP)
-
-let rows = [
-  { expIdx: 0, strike: 500 },
-  { expIdx: 1, strike: 500 },
-  { expIdx: 5, strike: 700 },
-  { expIdx: 1, strike: 400 },
-  { expIdx: 1, strike: 700 },
-  { expIdx: 1, strike: 600 },
-  { expIdx: 3, strike: 600 },
-  { expIdx: 6, strike: 940 },
-];
-let editingIdx = null;
-let wheelValue = null;
-let mode = 'curated';
-
+function daysUntilUnix(unix) {
+  const today = Date.now();
+  return Math.max(1, Math.round((unix * 1000 - today) / (1000*60*60*24)));
+}
 function colorFor(t) {
   const stops = [[34,197,94],[132,204,22],[234,179,8],[249,115,22],[239,68,68]];
   const x = t*(stops.length-1);
@@ -694,384 +702,10 @@ function colorFor(t) {
 function fmt(n) { return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 function pct(n) { return (n*100).toFixed(2) + '%'; }
 
-function setMode(m) {
-  mode = m;
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === m));
-  document.getElementById('curatedView').style.display = m === 'curated' ? '' : 'none';
-  document.getElementById('sweepView').style.display = m === 'sweep' ? '' : 'none';
-  document.getElementById('footNote').textContent = m === 'curated'
-    ? 'Tap any row to edit · BEST and WORST update live'
-    : 'Full chain at one expiration · color-graded by CAGR · ATM marked';
-  render();
-}
+// =============================================================================
+//  LIVE DATA FETCHING
+// =============================================================================
 
-function renderCurated(spot, sigma, r) {
-  document.getElementById('basePxC').textContent = spot.toFixed(2);
-  const computed = rows.map(row => {
-    const exp = EXPIRATIONS[row.expIdx];
-    const days = daysUntil(exp.date);
-    const T = days / 365;
-    const premium = bsCall(spot, row.strike, T, r, sigma);
-    const bept = row.strike + premium;
-    const delta = bept - spot;
-    const cagr = Math.pow(bept/spot, 365/days) - 1;
-    const perDay = premium / days;
-    const leverage = spot / premium;
-    return { ...row, expLabel: exp.label, days, premium, bept, delta, cagr, perDay, leverage };
-  });
-  const cagrs = computed.map(c => c.cagr);
-  const minC = Math.min(...cagrs), maxC = Math.max(...cagrs);
-  const bestIdx = cagrs.indexOf(minC), worstIdx = cagrs.indexOf(maxC);
-  const perDays = computed.map(c => c.perDay);
-  const minPerDay = Math.min(...perDays);
-  const timePickIdx = perDays.indexOf(minPerDay);
-
-  const tbody = document.getElementById('tbodyC');
-  tbody.innerHTML = '';
-  computed.forEach((c, i) => {
-    const t = (c.cagr - minC) / (maxC - minC || 1);
-    const color = colorFor(t);
-    const isBest = i === bestIdx, isWorst = i === worstIdx;
-    const isTimePick = i === timePickIdx && !isBest && !isWorst;
-    const div = document.createElement('div');
-    div.className = 'row'
-      + (isBest ? ' best' : '')
-      + (isWorst ? ' worst' : '')
-      + (isTimePick ? ' timepick' : '');
-    div.onclick = () => openEdit(i);
-    div.innerHTML = `
-      <div class="date">
-        <span>${c.expLabel}</span>
-        <span style="font-size:9px;color:#5a6478;font-weight:500;">${c.days}d</span>
-        ${isBest ? '<span class="marker">★ BEST</span>' : ''}
-        ${isWorst ? '<span class="marker">⚠ WORST</span>' : ''}
-        ${isTimePick ? '<span class="marker">⏱ TIME</span>' : ''}
-      </div>
-      <div class="strike">
-        <span class="strike-val">${c.strike}</span>
-        <span class="prem-val">$${c.premium.toFixed(2)}</span>
-      </div>
-      <div>${fmt(c.bept)}</div>
-      <div class="perday-cell">$${c.perDay.toFixed(2)}</div>
-      <div class="lev-cell">${c.leverage.toFixed(1)}x</div>
-      <div class="cagr-cell">
-        <div class="cagr-bg" style="background:${color};"></div>
-        <span class="cagr-val">${pct(c.cagr)}</span>
-      </div>
-    `;
-    tbody.appendChild(div);
-  });
-}
-
-function renderSweep(spot, sigma, r) {
-  document.getElementById('basePxS').textContent = spot.toFixed(2);
-  const expIdx = parseInt(document.getElementById('sweepExp').value);
-  const rangePct = parseFloat(document.getElementById('sweepRange').value);
-  const expectedGrowth = (parseFloat(document.getElementById('expectedGrowth').value) || 10) / 100;
-  const exp = EXPIRATIONS[expIdx];
-  const days = daysUntil(exp.date);
-  const T = days / 365;
-  const step = strikeStep(spot);
-  const atm = Math.round(spot / step) * step;
-  const minStrike = Math.max(step, Math.round((spot * (1 - rangePct)) / step) * step);
-  const maxStrike = Math.round((spot * (1 + rangePct)) / step) * step;
-
-  const computed = [];
-  for (let K = minStrike; K <= maxStrike; K += step) {
-    K = +K.toFixed(2);
-    const premium = bsCall(spot, K, T, r, sigma);
-    const bept = K + premium;
-    const cagr = Math.pow(bept/spot, 365/days) - 1;
-    const leverage = spot / premium;
-    computed.push({ K, premium, bept, cagr, leverage, isAtm: K === atm });
-  }
-  const cagrs = computed.map(c => c.cagr);
-  const minC = Math.min(...cagrs), maxC = Math.max(...cagrs);
-  const worstIdx = cagrs.indexOf(maxC);
-
-  // BALANCED: highest leverage among rows where CAGR <= expected growth
-  let balancedIdx = -1;
-  let bestLevWithinBudget = -1;
-  computed.forEach((c, i) => {
-    if (c.cagr <= expectedGrowth && c.leverage > bestLevWithinBudget) {
-      bestLevWithinBudget = c.leverage;
-      balancedIdx = i;
-    }
-  });
-  // Fallback: if no strike meets the threshold, use the one with lowest CAGR
-  if (balancedIdx === -1) balancedIdx = cagrs.indexOf(minC);
-
-  const tbody = document.getElementById('tbodyS');
-  tbody.innerHTML = '';
-  computed.forEach((c, i) => {
-    const t = (c.cagr - minC) / (maxC - minC || 1);
-    const color = colorFor(t);
-    const isBalanced = i === balancedIdx;
-    const isWorst = i === worstIdx;
-    const div = document.createElement('div');
-    div.className = 'row' + (isBalanced ? ' best' : '') + (isWorst ? ' worst' : '') + (c.isAtm && !isBalanced && !isWorst ? ' atm' : '');
-    div.innerHTML = `
-      <div class="strike">
-        <span class="strike-val">${c.K}</span>
-        <span class="prem-val">$${c.premium.toFixed(2)}</span>
-        ${isBalanced ? '<span class="marker">★ BALANCED</span>' : isWorst ? '<span class="marker">⚠ WORST</span>' : c.isAtm ? '<span class="marker">ATM</span>' : ''}
-      </div>
-      <div>${fmt(c.bept)}</div>
-      <div class="lev-cell">${c.leverage.toFixed(1)}x</div>
-      <div class="cagr-cell">
-        <div class="cagr-bg" style="background:${color};"></div>
-        <span class="cagr-val">${pct(c.cagr)}</span>
-      </div>
-    `;
-    tbody.appendChild(div);
-  });
-}
-
-function updateIvRankBadge() {
-  const v = parseFloat(document.getElementById('ivRank').value) || 0;
-  const badge = document.getElementById('ivrBadge');
-  badge.classList.remove('cheap', 'fair', 'pricey');
-  if (v < 30) { badge.textContent = 'CHEAP'; badge.classList.add('cheap'); }
-  else if (v < 70) { badge.textContent = 'FAIR'; badge.classList.add('fair'); }
-  else { badge.textContent = 'PRICEY'; badge.classList.add('pricey'); }
-}
-
-function render() {
-  updateIvRankBadge();
-  const spot = parseFloat(document.getElementById('spot').value) || 450;
-  const ivPct = parseFloat(document.getElementById('iv').value) || 55;
-  const sigma = ivPct / 100;
-  const r = 0.045;
-  if (mode === 'curated') renderCurated(spot, sigma, r);
-  else renderSweep(spot, sigma, r);
-}
-
-// Wheel picker (curated only)
-function buildWheel(currentStrike) {
-  const spot = parseFloat(document.getElementById('spot').value) || 450;
-  const step = strikeStep(spot);
-  document.getElementById('stepHint').textContent = step % 1 === 0 ? step : step.toFixed(2);
-  const wheel = document.getElementById('strikeWheel');
-  wheel.innerHTML = '<div class="wheel-pad"></div>';
-  const rounded = Math.round(currentStrike / step) * step;
-  for (let i = -25; i <= 25; i++) {
-    const v = +(rounded + i * step).toFixed(2);
-    if (v <= 0) continue;
-    const item = document.createElement('div');
-    item.className = 'wheel-item';
-    item.dataset.value = v;
-    item.textContent = v % 1 === 0 ? v : v.toFixed(2);
-    item.onclick = () => wheel.scrollTo({ top: item.offsetTop - (wheel.clientHeight - item.clientHeight) / 2, behavior: 'smooth' });
-    wheel.appendChild(item);
-  }
-  const padBottom = document.createElement('div');
-  padBottom.className = 'wheel-pad';
-  wheel.appendChild(padBottom);
-  setTimeout(() => {
-    const target = wheel.querySelector(`[data-value="${rounded}"]`);
-    if (target) {
-      wheel.scrollTop = target.offsetTop - (wheel.clientHeight - target.clientHeight) / 2;
-      updateWheelHighlight();
-    }
-  }, 30);
-}
-function updatePreview() {
-  if (!document.getElementById('modal').classList.contains('open')) return;
-  const expIdx = parseInt(document.getElementById('editExp').value);
-  const strike = wheelValue;
-
-  const cells = ['prevCost', 'prevBept', 'prevMove', 'prevCagr'];
-
-  if (!strike || strike <= 0 || isNaN(expIdx)) {
-    cells.forEach(id => document.getElementById(id).textContent = '—');
-    return;
-  }
-
-  const spot = parseFloat(document.getElementById('spot').value) || 450;
-  const ivPct = parseFloat(document.getElementById('iv').value) || 55;
-  const sigma = ivPct / 100;
-  const r = 0.045;
-  const exp = EXPIRATIONS[expIdx];
-  const days = daysUntil(exp.date);
-  const T = days / 365;
-  const premium = bsCall(spot, strike, T, r, sigma);
-  const bept = strike + premium;
-  const move = bept - spot;
-  const cagr = Math.pow(bept/spot, 365/days) - 1;
-
-  const newValues = {
-    prevCost: '$' + premium.toFixed(2),
-    prevBept: '$' + bept.toFixed(2),
-    prevMove: (move >= 0 ? '+$' : '-$') + Math.abs(move).toFixed(2),
-    prevCagr: (cagr*100).toFixed(2) + '%'
-  };
-
-  Object.entries(newValues).forEach(([id, val]) => {
-    const el = document.getElementById(id);
-    if (el.textContent !== val) {
-      el.textContent = val;
-      el.classList.remove('flash');
-      void el.offsetWidth; // force reflow to restart animation
-      el.classList.add('flash');
-    }
-  });
-}
-
-function applyLiveEdit() {
-  if (editingIdx === null || editingIdx === -1) return;
-  if (!document.getElementById('modal').classList.contains('open')) return;
-  const expIdx = parseInt(document.getElementById('editExp').value);
-  const strike = wheelValue;
-  if (!strike || strike <= 0 || isNaN(expIdx)) return;
-  rows[editingIdx] = { expIdx, strike };
-  render();
-  // Flash the updated row
-  setTimeout(() => {
-    const tbody = document.getElementById('tbodyC');
-    const row = tbody.children[editingIdx];
-    if (row) {
-      row.classList.remove('just-updated');
-      void row.offsetWidth;
-      row.classList.add('just-updated');
-    }
-  }, 10);
-}
-
-function updateWheelHighlight() {
-  const wheel = document.getElementById('strikeWheel');
-  const wheelCenter = wheel.scrollTop + wheel.clientHeight / 2;
-  const items = wheel.querySelectorAll('.wheel-item');
-  let closest = null, closestDist = Infinity;
-  items.forEach(item => {
-    const itemCenter = item.offsetTop + item.clientHeight / 2;
-    const dist = Math.abs(itemCenter - wheelCenter);
-    item.classList.remove('active', 'near');
-    if (dist < closestDist) { closestDist = dist; closest = item; }
-  });
-  items.forEach(item => {
-    const itemCenter = item.offsetTop + item.clientHeight / 2;
-    const dist = Math.abs(itemCenter - wheelCenter);
-    if (item === closest) item.classList.add('active');
-    else if (dist < 60) item.classList.add('near');
-  });
-  if (closest) wheelValue = parseFloat(closest.dataset.value);
-  updatePreview();
-  applyLiveEdit();
-}
-document.getElementById('editExp').addEventListener('change', () => { updatePreview(); applyLiveEdit(); });
-document.getElementById('editExp').addEventListener('input', () => { updatePreview(); applyLiveEdit(); });
-document.getElementById('strikeWheel').addEventListener('scroll', updateWheelHighlight);
-
-function openEdit(idx) {
-  editingIdx = idx;
-  const isNew = idx === -1;
-  document.getElementById('modalTitle').textContent = isNew ? 'Add LEAP' : 'Edit LEAP';
-  document.getElementById('btnDelete').style.display = isNew ? 'none' : 'block';
-  const spot = parseFloat(document.getElementById('spot').value) || 450;
-  document.getElementById('subTicker').textContent = document.getElementById('tickerDisplay').textContent;
-  document.getElementById('subSpot').textContent = '$' + spot.toFixed(2);
-  if (isNew) {
-    document.getElementById('editExp').value = 1;
-    buildWheel(Math.round(spot / strikeStep(spot)) * strikeStep(spot));
-  } else {
-    document.getElementById('editExp').value = rows[idx].expIdx;
-    buildWheel(rows[idx].strike);
-  }
-  document.getElementById('modal').classList.add('open');
-}
-function closeEdit() {
-  document.getElementById('modal').classList.remove('open');
-  editingIdx = null;
-}
-function saveEdit() {
-  const expIdx = parseInt(document.getElementById('editExp').value);
-  const strike = wheelValue;
-  if (!strike || strike <= 0 || isNaN(expIdx)) { alert('Invalid strike or expiration'); return; }
-  let savedIdx;
-  if (editingIdx === -1) {
-    rows.push({ expIdx, strike });
-    savedIdx = rows.length - 1;
-  } else {
-    rows[editingIdx] = { expIdx, strike };
-    savedIdx = editingIdx;
-  }
-  closeEdit();
-  render();
-  // Flash the row that was just saved
-  setTimeout(() => {
-    const tbody = document.getElementById('tbodyC');
-    const row = tbody.children[savedIdx];
-    if (row) {
-      row.classList.remove('just-updated');
-      void row.offsetWidth;
-      row.classList.add('just-updated');
-      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-  }, 50);
-}
-function deleteRow() {
-  if (editingIdx !== null && editingIdx !== -1) {
-    rows.splice(editingIdx, 1);
-    closeEdit();
-    render();
-  }
-}
-
-// Ticker picker
-function renderTickerList(filter = '') {
-  const list = document.getElementById('tickerList');
-  const f = filter.toUpperCase().trim();
-  list.innerHTML = '';
-  const matches = TICKERS.filter(t => t.sym.includes(f) || t.name.toUpperCase().includes(f));
-  const isTickerLike = /^[A-Z]{1,5}$/.test(f);
-  const exactMatch = TICKERS.find(t => t.sym === f);
-  if (isTickerLike && !exactMatch) {
-    const customDiv = document.createElement('div');
-    customDiv.className = 'ticker-item';
-    customDiv.style.borderBottom = '1px solid rgba(34,211,238,0.3)';
-    customDiv.style.background = 'rgba(34,211,238,0.04)';
-    customDiv.onclick = () => selectTicker({ sym: f, name: 'Custom — adjust Spot & IV above', spot: 100, iv: 50 });
-    customDiv.innerHTML = `
-      <div class="ticker-info">
-        <span class="ticker-sym">＋ Use ${f}</span>
-        <span class="ticker-name">Add as custom — adjust spot & IV after</span>
-      </div>
-      <div class="ticker-meta"><span style="color:#22d3ee;font-size:18px;">→</span></div>
-    `;
-    list.appendChild(customDiv);
-  }
-  if (matches.length === 0 && !isTickerLike) {
-    list.innerHTML += '<div class="ticker-empty">Type a ticker symbol to add it as a custom stock.</div>';
-    return;
-  }
-  matches.forEach(t => {
-    const div = document.createElement('div');
-    div.className = 'ticker-item';
-    div.onclick = () => selectTicker(t);
-    const ivrColor = t.ivr < 30 ? '#22c55e' : t.ivr < 70 ? '#fbbf24' : '#ef4444';
-    const ivrLabel = t.ivr < 30 ? 'CHEAP' : t.ivr < 70 ? 'FAIR' : 'PRICEY';
-    div.innerHTML = `
-      <div class="ticker-info">
-        <span class="ticker-sym">${t.sym}</span>
-        <span class="ticker-name">${t.name}</span>
-      </div>
-      <div class="ticker-meta">
-        <span class="ticker-spot">$${t.spot.toFixed(2)}</span>
-        <span style="font-size:10px;color:${ivrColor};font-weight:700;">IVR ${t.ivr} · ${ivrLabel}</span>
-      </div>
-    `;
-    list.appendChild(div);
-  });
-}
-function openTickerPicker() {
-  document.getElementById('tickerSearch').value = '';
-  renderTickerList();
-  document.getElementById('tickerModal').classList.add('open');
-  setTimeout(() => document.getElementById('tickerSearch').focus(), 100);
-}
-function closeTickerPicker() {
-  document.getElementById('tickerModal').classList.remove('open');
-}
 async function fetchQuote(symbol) {
   const pill = document.getElementById('livePill');
   pill.textContent = 'LIVE…';
@@ -1095,56 +729,690 @@ async function fetchQuote(symbol) {
   }
 }
 
-function applyTickerData(symbol, spot, iv, ivr) {
-  const oldSpot = parseFloat(document.getElementById('spot').value) || 450;
+async function fetchOptions(symbol, dateUnix = null) {
+  try {
+    const url = `/api/options?symbol=${encodeURIComponent(symbol)}${dateUnix ? `&date=${dateUnix}` : ''}`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    const res = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  } catch (err) {
+    console.warn('Options fetch failed:', err.message);
+    return null;
+  }
+}
+
+// Loads expirations + default chain for the longest LEAPS expiration available
+async function loadTickerChain(symbol) {
+  const initial = await fetchOptions(symbol);
+  if (!initial || !initial.expirations || initial.expirations.length === 0) {
+    return false;
+  }
+  // Filter to LEAPS-ish range (90 days to 3 years out)
+  const now = Date.now() / 1000;
+  const minSec = 90 * 86400;
+  const maxSec = 3 * 365 * 86400;
+  const filtered = initial.expirations.filter(e => {
+    const delta = e.unix - now;
+    return delta > minSec && delta < maxSec;
+  });
+  const exps = filtered.length > 0 ? filtered : initial.expirations;
+
+  liveData.symbol = symbol;
+  liveData.expirations = exps;
+  liveData.hasRealExpirations = true;
+
+  // Cache the chain that Yahoo returned with the initial request
+  if (initial.chainExpiration && initial.calls) {
+    liveData.chains[initial.chainExpiration] = {
+      calls: initial.calls,
+      puts: initial.puts,
+      strikes: initial.strikes,
+      fetchedAt: Date.now(),
+    };
+  }
+
+  // Try to fetch the longest expiration's chain too (for Sweep mode default)
+  const longest = exps[exps.length - 1];
+  if (longest && longest.unix !== initial.chainExpiration) {
+    fetchAndCacheChain(symbol, longest.unix); // fire-and-forget
+  }
+
+  populateExpirationDropdowns();
+  return true;
+}
+
+async function fetchAndCacheChain(symbol, unix) {
+  if (liveData.chains[unix]) return liveData.chains[unix];
+  const data = await fetchOptions(symbol, unix);
+  if (data && data.calls) {
+    liveData.chains[unix] = {
+      calls: data.calls,
+      puts: data.puts,
+      strikes: data.strikes,
+      fetchedAt: Date.now(),
+    };
+    render();
+    return liveData.chains[unix];
+  }
+  return null;
+}
+
+// Look up real price for a (expUnix, strike, side); returns null if not available
+function getRealContract(unix, strike, side = 'call') {
+  const chain = liveData.chains[unix];
+  if (!chain) return null;
+  const list = side === 'call' ? chain.calls : chain.puts;
+  if (!list) return null;
+  // Find exact strike, with tolerance for floating point
+  const contract = list.find(c => Math.abs(c.strike - strike) < 0.01);
+  if (!contract) return null;
+  return contract;
+}
+
+// Best estimate of premium for (unix, strike), preferring real data over BS
+function getPremium(spot, sigma, r, unix, strike, side = 'call') {
+  const contract = getRealContract(unix, strike, side);
+  if (contract) {
+    const mid = (contract.bid + contract.ask) / 2;
+    if (mid > 0.01) return { premium: mid, isReal: true, bid: contract.bid, ask: contract.ask, iv: contract.iv };
+    if (contract.last > 0.01) return { premium: contract.last, isReal: true, bid: contract.bid, ask: contract.ask, iv: contract.iv };
+  }
+  // Fall back to Black-Scholes
+  const days = daysUntilUnix(unix);
+  const T = days / 365;
+  const fn = side === 'call' ? bsCall : null;
+  if (!fn) return { premium: 0, isReal: false };
+  return { premium: fn(spot, strike, T, r, sigma), isReal: false };
+}
+
+// =============================================================================
+//  EXPIRATION DROPDOWNS
+// =============================================================================
+
+function populateExpirationDropdowns() {
+  const editSel = document.getElementById('editExp');
+  const sweepSel = document.getElementById('sweepExp');
+  const prevSweep = sweepSel.value;
+
+  [editSel, sweepSel].forEach(sel => {
+    sel.innerHTML = '';
+    liveData.expirations.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.unix;
+      opt.textContent = e.label;
+      sel.appendChild(opt);
+    });
+  });
+
+  // Default sweep to longest expiration
+  if (liveData.expirations.length > 0) {
+    const longest = liveData.expirations[liveData.expirations.length - 1];
+    sweepSel.value = prevSweep && liveData.expirations.find(e => e.unix === parseInt(prevSweep))
+      ? prevSweep
+      : longest.unix;
+  }
+
+  // Remap any rows pointing to old expirations to nearest available
+  rows = rows.map(r => {
+    const exact = liveData.expirations.find(e => e.unix === r.expUnix);
+    if (exact) return r;
+    // Find closest by absolute date difference
+    let closest = liveData.expirations[0];
+    let minDiff = Infinity;
+    liveData.expirations.forEach(e => {
+      const diff = Math.abs(e.unix - r.expUnix);
+      if (diff < minDiff) { minDiff = diff; closest = e; }
+    });
+    return { expUnix: closest.unix, strike: r.strike };
+  });
+
+  render();
+}
+
+function getExpLabel(unix) {
+  const exp = liveData.expirations.find(e => e.unix === unix);
+  return exp ? exp.label : new Date(unix * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+// =============================================================================
+//  TICKER FLOW
+// =============================================================================
+
+function applyTickerDataLocal(symbol, spot, iv, ivr) {
+  const oldSpot = parseFloat(document.getElementById('spot').value) || spot;
   const newStep = strikeStep(spot);
   rows = rows.map(r => {
     const moneyness = r.strike / oldSpot;
     const raw = moneyness * spot;
     const rounded = Math.round(raw / newStep) * newStep;
-    return { expIdx: r.expIdx, strike: Math.max(newStep, +rounded.toFixed(2)) };
+    return { expUnix: r.expUnix, strike: Math.max(newStep, +rounded.toFixed(2)) };
   });
   document.getElementById('tickerDisplay').textContent = symbol;
   document.getElementById('spot').value = spot.toFixed(2);
   if (iv !== null && iv !== undefined) document.getElementById('iv').value = iv;
   if (ivr !== null && ivr !== undefined) document.getElementById('ivRank').value = ivr;
-  render();
 }
 
 async function selectTicker(t) {
-  // Apply hardcoded data immediately for instant UX
-  applyTickerData(t.sym, t.spot, t.iv, t.ivr ?? 50);
+  // Immediate UI update with hardcoded values
+  applyTickerDataLocal(t.sym, t.spot, t.iv, t.ivr ?? 50);
   closeTickerPicker();
-  // Then fetch real spot price from Yahoo
-  const live = await fetchQuote(t.sym);
-  if (live && live.spot) {
-    // Update with real spot price; keep hardcoded IV/IVR (Yahoo quote doesn't include them)
-    applyTickerData(t.sym, live.spot, t.iv, t.ivr ?? 50);
+  // Reset live data for new ticker
+  liveData.chains = {};
+  liveData.hasRealExpirations = false;
+  liveData.expirations = FALLBACK_EXPIRATIONS.slice();
+  populateExpirationDropdowns();
+
+  // Fetch real spot
+  const quote = await fetchQuote(t.sym);
+  if (quote && quote.spot) {
+    applyTickerDataLocal(t.sym, quote.spot, t.iv, t.ivr ?? 50);
+  }
+  // Fetch real options chain
+  await loadTickerChain(t.sym);
+  render();
+}
+
+// =============================================================================
+//  RENDER — CURATED (Picks)
+// =============================================================================
+
+function renderCurated(spot, sigma, r) {
+  document.getElementById('basePxC').textContent = spot.toFixed(2);
+
+  const computed = rows.map(row => {
+    const days = daysUntilUnix(row.expUnix);
+    const { premium, isReal } = getPremium(spot, sigma, r, row.expUnix, row.strike, 'call');
+    const bept = row.strike + premium;
+    const cagr = Math.pow(bept/spot, 365/days) - 1;
+    const perDay = premium / days;
+    const leverage = spot / Math.max(0.01, premium);
+    return { ...row, expLabel: getExpLabel(row.expUnix), days, premium, bept, cagr, perDay, leverage, isReal };
+  });
+
+  const cagrs = computed.map(c => c.cagr);
+  const minC = Math.min(...cagrs), maxC = Math.max(...cagrs);
+  const bestIdx = cagrs.indexOf(minC), worstIdx = cagrs.indexOf(maxC);
+  const perDays = computed.map(c => c.perDay);
+  const timePickIdx = perDays.indexOf(Math.min(...perDays));
+
+  const tbody = document.getElementById('tbodyC');
+  tbody.innerHTML = '';
+  computed.forEach((c, i) => {
+    const t = (c.cagr - minC) / (maxC - minC || 1);
+    const color = colorFor(t);
+    const isBest = i === bestIdx, isWorst = i === worstIdx;
+    const isTimePick = i === timePickIdx && !isBest && !isWorst;
+    const div = document.createElement('div');
+    div.className = 'row'
+      + (isBest ? ' best' : '')
+      + (isWorst ? ' worst' : '')
+      + (isTimePick ? ' timepick' : '');
+    div.onclick = () => openEdit(i);
+    div.innerHTML = `
+      <div class="date">
+        <span>${c.expLabel}</span>
+        <span style="font-size:9px;color:#5a6478;font-weight:500;">${c.days}d ${c.isReal ? '· <span style="color:#16a34a;font-weight:700;">REAL</span>' : '· <span style="color:#94a3b8;">EST</span>'}</span>
+        ${isBest ? '<span class="marker">★ BEST</span>' : ''}
+        ${isWorst ? '<span class="marker">⚠ WORST</span>' : ''}
+        ${isTimePick ? '<span class="marker">⏱ TIME</span>' : ''}
+      </div>
+      <div class="strike">
+        <span class="strike-val">${c.strike}</span>
+        <span class="prem-val">$${c.premium.toFixed(2)}</span>
+      </div>
+      <div>${fmt(c.bept)}</div>
+      <div class="perday-cell">$${c.perDay.toFixed(2)}</div>
+      <div class="lev-cell">${c.leverage.toFixed(1)}x</div>
+      <div class="cagr-cell">
+        <div class="cagr-bg" style="background:${color};"></div>
+        <span class="cagr-val">${pct(c.cagr)}</span>
+      </div>
+    `;
+    tbody.appendChild(div);
+  });
+}
+
+// =============================================================================
+//  RENDER — SWEEP (full chain)
+// =============================================================================
+
+function renderSweep(spot, sigma, r) {
+  document.getElementById('basePxS').textContent = spot.toFixed(2);
+  const expUnix = parseInt(document.getElementById('sweepExp').value);
+  const rangePct = parseFloat(document.getElementById('sweepRange').value);
+  const expectedGrowth = (parseFloat(document.getElementById('expectedGrowth').value) || 10) / 100;
+  if (!expUnix) {
+    document.getElementById('tbodyS').innerHTML = '<div style="padding:20px;text-align:center;color:#5a6478;">Loading expirations…</div>';
+    return;
+  }
+  const days = daysUntilUnix(expUnix);
+  const step = strikeStep(spot);
+  const atm = Math.round(spot / step) * step;
+  const minStrike = Math.max(step, spot * (1 - rangePct));
+  const maxStrike = spot * (1 + rangePct);
+
+  // Use real strikes from chain if available; otherwise generate
+  const chain = liveData.chains[expUnix];
+  let strikeList;
+  if (chain && chain.calls && chain.calls.length > 0) {
+    strikeList = chain.calls
+      .filter(c => c.strike >= minStrike && c.strike <= maxStrike)
+      .map(c => c.strike)
+      .sort((a, b) => a - b);
+    // If user hasn't fetched it yet, trigger fetch and show what we have
+    if (chain.calls.length === 0) fetchAndCacheChain(liveData.symbol, expUnix);
+  } else {
+    // Generate strikes via step
+    strikeList = [];
+    const minK = Math.round(minStrike / step) * step;
+    const maxK = Math.round(maxStrike / step) * step;
+    for (let K = minK; K <= maxK; K += step) strikeList.push(+K.toFixed(2));
+    // Trigger fetch in background
+    fetchAndCacheChain(liveData.symbol, expUnix);
+  }
+
+  const computed = strikeList.map(K => {
+    const { premium, isReal } = getPremium(spot, sigma, r, expUnix, K, 'call');
+    const bept = K + premium;
+    const cagr = Math.pow(bept/spot, 365/days) - 1;
+    const leverage = spot / Math.max(0.01, premium);
+    return { K, premium, bept, cagr, leverage, isAtm: Math.abs(K - atm) < 0.01, isReal };
+  });
+  const cagrs = computed.map(c => c.cagr);
+  const minC = Math.min(...cagrs), maxC = Math.max(...cagrs);
+  const worstIdx = cagrs.indexOf(maxC);
+
+  // BALANCED: highest leverage with CAGR ≤ expected growth
+  let balancedIdx = -1;
+  let bestLev = -1;
+  computed.forEach((c, i) => {
+    if (c.cagr <= expectedGrowth && c.leverage > bestLev) {
+      bestLev = c.leverage;
+      balancedIdx = i;
+    }
+  });
+  if (balancedIdx === -1) balancedIdx = cagrs.indexOf(minC);
+
+  const tbody = document.getElementById('tbodyS');
+  tbody.innerHTML = '';
+  const anyReal = computed.some(c => c.isReal);
+  if (!chain) {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'padding:6px 10px;text-align:center;font-size:10.5px;color:#fbbf24;background:#fef3c7;border-bottom:1px solid #e5ebf2;';
+    banner.textContent = '⌛ Loading real chain… showing Black-Scholes estimates';
+    tbody.appendChild(banner);
+  }
+  computed.forEach((c, i) => {
+    const t = (c.cagr - minC) / (maxC - minC || 1);
+    const color = colorFor(t);
+    const isBalanced = i === balancedIdx;
+    const isWorst = i === worstIdx;
+    const div = document.createElement('div');
+    div.className = 'row' + (isBalanced ? ' best' : '') + (isWorst ? ' worst' : '') + (c.isAtm && !isBalanced && !isWorst ? ' atm' : '');
+    div.innerHTML = `
+      <div class="strike">
+        <span class="strike-val">${c.K}</span>
+        <span class="prem-val">$${c.premium.toFixed(2)}${c.isReal ? '' : '<span style="color:#94a3b8;font-weight:500;"> est</span>'}</span>
+        ${isBalanced ? '<span class="marker">★ BALANCED</span>' : isWorst ? '<span class="marker">⚠ WORST</span>' : c.isAtm ? '<span class="marker">ATM</span>' : ''}
+      </div>
+      <div>${fmt(c.bept)}</div>
+      <div class="lev-cell">${c.leverage.toFixed(1)}x</div>
+      <div class="cagr-cell">
+        <div class="cagr-bg" style="background:${color};"></div>
+        <span class="cagr-val">${pct(c.cagr)}</span>
+      </div>
+    `;
+    tbody.appendChild(div);
+  });
+}
+
+// =============================================================================
+//  IV RANK BADGE
+// =============================================================================
+
+function updateIvRankBadge() {
+  const v = parseFloat(document.getElementById('ivRank').value) || 0;
+  const badge = document.getElementById('ivrBadge');
+  badge.classList.remove('cheap', 'fair', 'pricey');
+  if (v < 30) { badge.textContent = 'CHEAP'; badge.classList.add('cheap'); }
+  else if (v < 70) { badge.textContent = 'FAIR'; badge.classList.add('fair'); }
+  else { badge.textContent = 'PRICEY'; badge.classList.add('pricey'); }
+}
+
+// =============================================================================
+//  ROOT RENDER + MODE SWITCH
+// =============================================================================
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === m));
+  document.getElementById('curatedView').style.display = m === 'curated' ? '' : 'none';
+  document.getElementById('sweepView').style.display = m === 'sweep' ? '' : 'none';
+  document.getElementById('footNote').textContent = m === 'curated'
+    ? 'Tap any row to edit · BEST and WORST update live'
+    : 'Full chain at one expiration · color-graded by CAGR · ATM marked';
+  render();
+}
+
+function render() {
+  updateIvRankBadge();
+  const spot = parseFloat(document.getElementById('spot').value) || 450;
+  const ivPct = parseFloat(document.getElementById('iv').value) || 55;
+  const sigma = ivPct / 100;
+  const r = 0.045;
+  if (mode === 'curated') renderCurated(spot, sigma, r);
+  else renderSweep(spot, sigma, r);
+}
+
+// =============================================================================
+//  WHEEL PICKER (uses real strikes from chain when available)
+// =============================================================================
+
+function buildWheel(currentStrike, expUnix) {
+  const spot = parseFloat(document.getElementById('spot').value) || 450;
+  const step = strikeStep(spot);
+  document.getElementById('stepHint').textContent = step % 1 === 0 ? step : step.toFixed(2);
+  const wheel = document.getElementById('strikeWheel');
+  wheel.innerHTML = '<div class="wheel-pad"></div>';
+
+  // Prefer real strikes from chain if available
+  let strikeList = [];
+  const chain = expUnix && liveData.chains[expUnix];
+  if (chain && chain.calls && chain.calls.length > 0) {
+    strikeList = chain.calls.map(c => c.strike).sort((a, b) => a - b);
+  } else {
+    // Generate around currentStrike
+    const rounded = Math.round(currentStrike / step) * step;
+    for (let i = -25; i <= 25; i++) {
+      const v = +(rounded + i * step).toFixed(2);
+      if (v > 0) strikeList.push(v);
+    }
+    // Fetch in background if we have a ticker
+    if (expUnix && liveData.symbol) fetchAndCacheChain(liveData.symbol, expUnix);
+  }
+
+  strikeList.forEach(v => {
+    const item = document.createElement('div');
+    item.className = 'wheel-item';
+    item.dataset.value = v;
+    item.textContent = v % 1 === 0 ? v : v.toFixed(2);
+    item.onclick = () => wheel.scrollTo({ top: item.offsetTop - (wheel.clientHeight - item.clientHeight) / 2, behavior: 'smooth' });
+    wheel.appendChild(item);
+  });
+  const padBottom = document.createElement('div');
+  padBottom.className = 'wheel-pad';
+  wheel.appendChild(padBottom);
+
+  setTimeout(() => {
+    // Snap to closest available strike
+    let closest = strikeList[0];
+    let minDiff = Infinity;
+    strikeList.forEach(v => {
+      const diff = Math.abs(v - currentStrike);
+      if (diff < minDiff) { minDiff = diff; closest = v; }
+    });
+    const target = wheel.querySelector(`[data-value="${closest}"]`);
+    if (target) {
+      wheel.scrollTop = target.offsetTop - (wheel.clientHeight - target.clientHeight) / 2;
+      updateWheelHighlight();
+    }
+  }, 30);
+}
+
+function updateWheelHighlight() {
+  const wheel = document.getElementById('strikeWheel');
+  const wheelCenter = wheel.scrollTop + wheel.clientHeight / 2;
+  const items = wheel.querySelectorAll('.wheel-item');
+  let closest = null, closestDist = Infinity;
+  items.forEach(item => {
+    const itemCenter = item.offsetTop + item.clientHeight / 2;
+    const dist = Math.abs(itemCenter - wheelCenter);
+    item.classList.remove('active', 'near');
+    if (dist < closestDist) { closestDist = dist; closest = item; }
+  });
+  items.forEach(item => {
+    const itemCenter = item.offsetTop + item.clientHeight / 2;
+    const dist = Math.abs(itemCenter - wheelCenter);
+    if (item === closest) item.classList.add('active');
+    else if (dist < 60) item.classList.add('near');
+  });
+  if (closest) wheelValue = parseFloat(closest.dataset.value);
+  updatePreview();
+  applyLiveEdit();
+}
+
+// =============================================================================
+//  EDIT MODAL
+// =============================================================================
+
+function updatePreview() {
+  if (!document.getElementById('modal').classList.contains('open')) return;
+  const expUnix = parseInt(document.getElementById('editExp').value);
+  const strike = wheelValue;
+  const cells = ['prevCost', 'prevBept', 'prevMove', 'prevCagr'];
+  if (!strike || strike <= 0 || isNaN(expUnix)) {
+    cells.forEach(id => document.getElementById(id).textContent = '—');
+    return;
+  }
+  const spot = parseFloat(document.getElementById('spot').value) || 450;
+  const ivPct = parseFloat(document.getElementById('iv').value) || 55;
+  const sigma = ivPct / 100;
+  const r = 0.045;
+  const days = daysUntilUnix(expUnix);
+  const { premium, isReal } = getPremium(spot, sigma, r, expUnix, strike, 'call');
+  const bept = strike + premium;
+  const move = bept - spot;
+  const cagr = Math.pow(bept/spot, 365/days) - 1;
+
+  const newValues = {
+    prevCost: '$' + premium.toFixed(2) + (isReal ? '' : ' est'),
+    prevBept: '$' + bept.toFixed(2),
+    prevMove: (move >= 0 ? '+$' : '-$') + Math.abs(move).toFixed(2),
+    prevCagr: (cagr*100).toFixed(2) + '%'
+  };
+  Object.entries(newValues).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el.textContent !== val) {
+      el.textContent = val;
+      el.classList.remove('flash');
+      void el.offsetWidth;
+      el.classList.add('flash');
+    }
+  });
+}
+
+function applyLiveEdit() {
+  if (editingIdx === null || editingIdx === -1) return;
+  if (!document.getElementById('modal').classList.contains('open')) return;
+  const expUnix = parseInt(document.getElementById('editExp').value);
+  const strike = wheelValue;
+  if (!strike || strike <= 0 || isNaN(expUnix)) return;
+  rows[editingIdx] = { expUnix, strike };
+  render();
+  setTimeout(() => {
+    const tbody = document.getElementById('tbodyC');
+    const row = tbody.children[editingIdx];
+    if (row) {
+      row.classList.remove('just-updated');
+      void row.offsetWidth;
+      row.classList.add('just-updated');
+    }
+  }, 10);
+}
+
+function openEdit(idx) {
+  editingIdx = idx;
+  const isNew = idx === -1;
+  document.getElementById('modalTitle').textContent = isNew ? 'Add LEAP' : 'Edit LEAP';
+  document.getElementById('btnDelete').style.display = isNew ? 'none' : 'block';
+  const spot = parseFloat(document.getElementById('spot').value) || 450;
+  document.getElementById('subTicker').textContent = document.getElementById('tickerDisplay').textContent;
+  document.getElementById('subSpot').textContent = '$' + spot.toFixed(2);
+  let expUnix, strike;
+  if (isNew) {
+    // Default to ~1.5 years out
+    const mid = Math.floor(liveData.expirations.length * 0.7);
+    expUnix = liveData.expirations[mid]?.unix || liveData.expirations[0]?.unix;
+    strike = Math.round(spot / strikeStep(spot)) * strikeStep(spot);
+  } else {
+    expUnix = rows[idx].expUnix;
+    strike = rows[idx].strike;
+  }
+  document.getElementById('editExp').value = expUnix;
+  buildWheel(strike, expUnix);
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeEdit() {
+  document.getElementById('modal').classList.remove('open');
+  editingIdx = null;
+}
+
+function saveEdit() {
+  const expUnix = parseInt(document.getElementById('editExp').value);
+  const strike = wheelValue;
+  if (!strike || strike <= 0 || isNaN(expUnix)) { alert('Invalid strike or expiration'); return; }
+  let savedIdx;
+  if (editingIdx === -1) {
+    rows.push({ expUnix, strike });
+    savedIdx = rows.length - 1;
+  } else {
+    rows[editingIdx] = { expUnix, strike };
+    savedIdx = editingIdx;
+  }
+  closeEdit();
+  render();
+  setTimeout(() => {
+    const tbody = document.getElementById('tbodyC');
+    const row = tbody.children[savedIdx];
+    if (row) {
+      row.classList.remove('just-updated');
+      void row.offsetWidth;
+      row.classList.add('just-updated');
+      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, 50);
+}
+
+function deleteRow() {
+  if (editingIdx !== null && editingIdx !== -1) {
+    rows.splice(editingIdx, 1);
+    closeEdit();
+    render();
   }
 }
+
+// =============================================================================
+//  TICKER PICKER
+// =============================================================================
+
+function renderTickerList(filter = '') {
+  const list = document.getElementById('tickerList');
+  const f = filter.toUpperCase().trim();
+  list.innerHTML = '';
+  const matches = TICKERS.filter(t => t.sym.includes(f) || t.name.toUpperCase().includes(f));
+  const isTickerLike = /^[A-Z]{1,5}$/.test(f);
+  const exactMatch = TICKERS.find(t => t.sym === f);
+  if (isTickerLike && !exactMatch) {
+    const customDiv = document.createElement('div');
+    customDiv.className = 'ticker-item';
+    customDiv.style.borderBottom = '1px solid rgba(34,211,238,0.3)';
+    customDiv.style.background = 'rgba(34,211,238,0.04)';
+    customDiv.onclick = () => selectTicker({ sym: f, name: 'Custom', spot: 100, iv: 50, ivr: 50 });
+    customDiv.innerHTML = `
+      <div class="ticker-info">
+        <span class="ticker-sym">＋ Use ${f}</span>
+        <span class="ticker-name">Pull live data from Yahoo</span>
+      </div>
+      <div class="ticker-meta"><span style="color:#22d3ee;font-size:18px;">→</span></div>
+    `;
+    list.appendChild(customDiv);
+  }
+  if (matches.length === 0 && !isTickerLike) {
+    list.innerHTML += '<div class="ticker-empty">Type a ticker symbol to add it.</div>';
+    return;
+  }
+  matches.forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'ticker-item';
+    div.onclick = () => selectTicker(t);
+    const ivrColor = t.ivr < 30 ? '#22c55e' : t.ivr < 70 ? '#fbbf24' : '#ef4444';
+    const ivrLabel = t.ivr < 30 ? 'CHEAP' : t.ivr < 70 ? 'FAIR' : 'PRICEY';
+    div.innerHTML = `
+      <div class="ticker-info">
+        <span class="ticker-sym">${t.sym}</span>
+        <span class="ticker-name">${t.name}</span>
+      </div>
+      <div class="ticker-meta">
+        <span class="ticker-spot">$${t.spot.toFixed(2)}</span>
+        <span style="font-size:10px;color:${ivrColor};font-weight:700;">IVR ${t.ivr} · ${ivrLabel}</span>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function openTickerPicker() {
+  document.getElementById('tickerSearch').value = '';
+  renderTickerList();
+  document.getElementById('tickerModal').classList.add('open');
+  setTimeout(() => document.getElementById('tickerSearch').focus(), 100);
+}
+
+function closeTickerPicker() {
+  document.getElementById('tickerModal').classList.remove('open');
+}
+
+// =============================================================================
+//  EVENT WIRING
+// =============================================================================
+
+document.getElementById('editExp').addEventListener('change', () => { updatePreview(); applyLiveEdit(); });
+document.getElementById('editExp').addEventListener('input', () => { updatePreview(); applyLiveEdit(); });
+document.getElementById('strikeWheel').addEventListener('scroll', updateWheelHighlight);
 document.getElementById('tickerSearch').addEventListener('input', e => renderTickerList(e.target.value));
 document.getElementById('tickerModal').addEventListener('click', e => {
   if (e.target.id === 'tickerModal') closeTickerPicker();
 });
-
 document.getElementById('spot').addEventListener('input', render);
 document.getElementById('iv').addEventListener('input', render);
 document.getElementById('ivRank').addEventListener('input', render);
-document.getElementById('sweepExp').addEventListener('change', render);
+document.getElementById('sweepExp').addEventListener('change', () => {
+  const expUnix = parseInt(document.getElementById('sweepExp').value);
+  if (expUnix && !liveData.chains[expUnix] && liveData.symbol) {
+    fetchAndCacheChain(liveData.symbol, expUnix);
+  }
+  render();
+});
 document.getElementById('sweepRange').addEventListener('change', render);
 document.getElementById('expectedGrowth').addEventListener('input', render);
 document.getElementById('modal').addEventListener('click', e => {
   if (e.target.id === 'modal') closeEdit();
 });
 
+// =============================================================================
+//  INIT
+// =============================================================================
+
+populateExpirationDropdowns();
 render();
 
-// On initial load, fetch live spot for default ticker (TSLA)
-fetchQuote('TSLA').then(live => {
-  if (live && live.spot) {
-    applyTickerData('TSLA', live.spot, 55, 45);
+// Fire off initial fetches for default TSLA
+(async () => {
+  const quote = await fetchQuote('TSLA');
+  if (quote && quote.spot) {
+    applyTickerDataLocal('TSLA', quote.spot, 55, 45);
+    render();
   }
-});
+  await loadTickerChain('TSLA');
+  render();
+})();
 
 </script>
 </body>
