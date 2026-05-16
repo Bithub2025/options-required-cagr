@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   // Cache aggressively at the edge - chains don't change often during the day
-  res.setHeader('Cache-Control', 's-maxage=180, stale-while-revalidate=600');
+  res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate=1800');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -39,6 +39,9 @@ export default async function handler(req, res) {
       clearTimeout(timer);
 
       if (!response.ok) {
+        if (response.status === 429) {
+          return res.status(429).json({ error: 'Rate limited by data provider — please wait a minute and try again' });
+        }
         lastErr = `Yahoo returned ${response.status}`;
         continue;
       }

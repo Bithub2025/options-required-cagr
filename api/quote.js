@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   // Allow CORS so the frontend can call this from any deployment URL
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=900');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -38,6 +38,10 @@ export default async function handler(req, res) {
       clearTimeout(timer);
 
       if (!response.ok) {
+        if (response.status === 429) {
+          // Don't retry on 429 - Yahoo's blocking us
+          return res.status(429).json({ error: 'Rate limited by data provider — please wait a minute and try again' });
+        }
         lastErr = `Yahoo returned ${response.status}`;
         continue;
       }

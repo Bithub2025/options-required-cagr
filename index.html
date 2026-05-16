@@ -723,8 +723,10 @@ async function fetchQuote(symbol) {
     return data;
   } catch (err) {
     console.warn('Quote fetch failed:', err.message);
-    pill.textContent = err.name === 'AbortError' ? 'SLOW' : 'OFFLINE';
+    const isRateLimit = err.message && err.message.toLowerCase().includes('rate');
+    pill.textContent = isRateLimit ? 'WAIT' : (err.name === 'AbortError' ? 'SLOW' : 'OFFLINE');
     pill.className = 'live-pill error';
+    pill.title = err.message || 'Network issue';
     return null;
   }
 }
@@ -776,11 +778,7 @@ async function loadTickerChain(symbol) {
     };
   }
 
-  // Try to fetch the longest expiration's chain too (for Sweep mode default)
-  const longest = exps[exps.length - 1];
-  if (longest && longest.unix !== initial.chainExpiration) {
-    fetchAndCacheChain(symbol, longest.unix); // fire-and-forget
-  }
+  // Don't auto-prefetch other chains - too many Yahoo calls. Fetch on demand.
 
   populateExpirationDropdowns();
   return true;
