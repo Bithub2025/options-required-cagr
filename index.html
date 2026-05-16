@@ -56,6 +56,28 @@ body {
   display: flex; align-items: center; gap: 6px;
 }
 .ticker-display::after { content: '▾'; color: #8a92a5; font-size: 9px; }
+.live-pill {
+  position: absolute;
+  top: 4px; right: 6px;
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 2px 5px;
+  border-radius: 3px;
+  pointer-events: none;
+  font-family: 'Bricolage Grotesque', sans-serif;
+}
+.live-pill.live { background: rgba(34,197,94,0.2); color: #22c55e; }
+.live-pill.mock { background: rgba(251,191,36,0.2); color: #fbbf24; }
+.live-pill.loading {
+  background: rgba(34,211,238,0.2); color: #22d3ee;
+  animation: pulse 1s ease-in-out infinite;
+}
+.live-pill.error { background: rgba(239,68,68,0.2); color: #ef4444; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
 
 /* Title */
 .title {
@@ -420,6 +442,7 @@ body {
     <div class="ctrl" onclick="openTickerPicker()">
       <div class="ctrl-label">Ticker</div>
       <div class="ticker-display" id="tickerDisplay">TSLA</div>
+      <span class="live-pill mock" id="livePill">MOCK</span>
     </div>
     <div class="ctrl green">
       <div class="ctrl-label">Spot $</div>
@@ -1049,22 +1072,55 @@ function openTickerPicker() {
 function closeTickerPicker() {
   document.getElementById('tickerModal').classList.remove('open');
 }
-function selectTicker(t) {
+async function fetchQuote(symbol) {
+  const pill = document.getElementById('livePill');
+  pill.textContent = 'LIVE…';
+  pill.className = 'live-pill loading';
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 7000);
+    const res = await fetch(`/api/quote?symbol=${encodeURIComponent(symbol)}`, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    pill.textContent = 'LIVE';
+    pill.className = 'live-pill live';
+    return data;
+  } catch (err) {
+    console.warn('Quote fetch failed:', err.message);
+    pill.textContent = err.name === 'AbortError' ? 'SLOW' : 'OFFLINE';
+    pill.className = 'live-pill error';
+    return null;
+  }
+}
+
+function applyTickerData(symbol, spot, iv, ivr) {
   const oldSpot = parseFloat(document.getElementById('spot').value) || 450;
-  const newSpot = t.spot;
-  const newStep = strikeStep(newSpot);
+  const newStep = strikeStep(spot);
   rows = rows.map(r => {
     const moneyness = r.strike / oldSpot;
-    const raw = moneyness * newSpot;
+    const raw = moneyness * spot;
     const rounded = Math.round(raw / newStep) * newStep;
     return { expIdx: r.expIdx, strike: Math.max(newStep, +rounded.toFixed(2)) };
   });
-  document.getElementById('tickerDisplay').textContent = t.sym;
-  document.getElementById('spot').value = newSpot.toFixed(2);
-  document.getElementById('iv').value = t.iv;
-  document.getElementById('ivRank').value = t.ivr ?? 50;
-  closeTickerPicker();
+  document.getElementById('tickerDisplay').textContent = symbol;
+  document.getElementById('spot').value = spot.toFixed(2);
+  if (iv !== null && iv !== undefined) document.getElementById('iv').value = iv;
+  if (ivr !== null && ivr !== undefined) document.getElementById('ivRank').value = ivr;
   render();
+}
+
+async function selectTicker(t) {
+  // Apply hardcoded data immediately for instant UX
+  applyTickerData(t.sym, t.spot, t.iv, t.ivr ?? 50);
+  closeTickerPicker();
+  // Then fetch real spot price from Yahoo
+  const live = await fetchQuote(t.sym);
+  if (live && live.spot) {
+    // Update with real spot price; keep hardcoded IV/IVR (Yahoo quote doesn't include them)
+    applyTickerData(t.sym, live.spot, t.iv, t.ivr ?? 50);
+  }
 }
 document.getElementById('tickerSearch').addEventListener('input', e => renderTickerList(e.target.value));
 document.getElementById('tickerModal').addEventListener('click', e => {
@@ -1082,7 +1138,14 @@ document.getElementById('modal').addEventListener('click', e => {
 });
 
 render();
-</script>
 
+// On initial load, fetch live spot for default ticker (TSLA)
+fetchQuote('TSLA').then(live => {
+  if (live && live.spot) {
+    applyTickerData('TSLA', live.spot, 55, 45);
+  }
+});
+
+</script>
 </body>
 </html>
