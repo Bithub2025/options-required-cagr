@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAGR to Breakeven on Top LEAPS</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  background: #000; color: #fff;
+  min-height: 100vh; padding: 12px 8px;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 540px; margin: 0 auto; }
+
+/* Controls */
+.controls { display: grid; grid-template-columns: 1.2fr 1fr 0.85fr 1fr; gap: 5px; margin-bottom: 10px; }
+.ctrl {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 7px 9px;
+  cursor: pointer;
+  position: relative;
+}
+.ctrl-label {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em;
+  color: #8a92a5; margin-bottom: 2px; font-weight: 600;
+}
+.ctrl input {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; font-weight: 700;
+  background: transparent; color: #fff;
+  border: 0; width: 100%; outline: none; appearance: none; padding: 0;
+}
+.ctrl.green input { color: #22c55e; }
+.ctrl.amber input { color: #fbbf24; }
+.ctrl.magenta input { color: #ec4899; }
+.ivr-badge {
+  position: absolute;
+  top: 6px; right: 8px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+.ivr-badge.cheap { background: rgba(34,197,94,0.2); color: #22c55e; }
+.ivr-badge.fair { background: rgba(251,191,36,0.2); color: #fbbf24; }
+.ivr-badge.pricey { background: rgba(239,68,68,0.2); color: #ef4444; }
+.ticker-display {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; font-weight: 700; color: #22d3ee;
+  display: flex; align-items: center; gap: 6px;
+}
+.ticker-display::after { content: '▾'; color: #8a92a5; font-size: 9px; }
+
+/* Title */
+.title {
+  text-align: center; font-size: 19px; font-weight: 800;
+  letter-spacing: -0.01em; line-height: 1.15;
+  margin: 4px 0 10px;
+  color: #fbbf24;
+  text-shadow: 0 2px 8px rgba(251,191,36,0.2);
+}
+.title em { font-style: normal; color: #22d3ee; }
+
+/* Tabs */
+.tabs {
+  display: flex; gap: 4px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 10px;
+}
+.tab {
+  flex: 1; background: transparent; border: 0;
+  color: #8a92a5; font-family: inherit;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 8px; border-radius: 8px; cursor: pointer;
+  transition: all 0.15s;
+}
+.tab.on { background: #22d3ee; color: #000; }
+.tab .hint { display: block; font-size: 9px; font-weight: 500; opacity: 0.7; margin-top: 1px; letter-spacing: 0; }
+
+/* Card */
+.card {
+  background: #fff; border-radius: 10px; overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+.card-title {
+  padding: 10px 12px 8px; font-size: 13px; font-weight: 700; color: #1a2230;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.card-title .sub { font-weight: 500; color: #5a6478; font-size: 11px; }
+
+/* Curated table */
+.thead, .row {
+  display: grid;
+  gap: 4px; padding: 0 8px;
+}
+.curated .thead, .curated .row {
+  grid-template-columns: 80px 60px 1fr 50px 50px 64px;
+}
+.thead {
+  background: #1e40af; color: #fff;
+  font-size: 10px; font-weight: 700;
+  padding: 9px 8px;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.15);
+}
+.thead .th { text-align: center; line-height: 1.15; }
+.thead .th.left { text-align: left; padding-left: 4px; }
+.thead .th.right { text-align: right; padding-right: 4px; }
+
+.row {
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px; font-weight: 500; color: #1a2230;
+  height: 44px; border-bottom: 1px solid #e5ebf2;
+  position: relative; cursor: pointer;
+  transition: background 0.12s;
+}
+.row:nth-child(odd) { background: #f3f7fb; }
+.row:active { background: #d6e6f5 !important; }
+.row > div { text-align: center; }
+.row .date {
+  text-align: left; padding-left: 4px;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 600; font-size: 10.5px;
+  display: flex; flex-direction: column;
+  justify-content: center; line-height: 1.1;
+}
+.row .strike {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  line-height: 1.15; gap: 1px;
+}
+.row .strike-val { font-weight: 700; font-size: 12.5px; color: #1a2230; }
+.row .prem-val { font-weight: 600; font-size: 10px; color: #16a34a; }
+.row .cagr-cell {
+  text-align: right; padding-right: 8px;
+  font-weight: 700; font-size: 12px;
+  height: 100%;
+  display: flex; align-items: center; justify-content: flex-end;
+  position: relative;
+}
+.row .cagr-bg { position: absolute; inset: 3px 0; border-radius: 4px; z-index: 0; }
+.row .cagr-val { position: relative; z-index: 1; }
+
+.row.best {
+  background: rgba(34,197,94,0.10) !important;
+  box-shadow: inset 4px 0 0 #22c55e;
+}
+.row.worst {
+  background: rgba(245,158,11,0.10) !important;
+  box-shadow: inset 4px 0 0 #f59e0b;
+}
+.row.atm {
+  box-shadow: inset 4px 0 0 #fbbf24;
+}
+.row .marker {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 8.5px; font-weight: 800; letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+.row.best .marker { color: #16a34a; }
+.row.worst .marker { color: #d97706; }
+.row.atm .marker { color: #d97706; }
+.row.timepick { box-shadow: inset 4px 0 0 #22d3ee; }
+.row.timepick .marker { color: #0891b2; }
+.perday-cell {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: #0891b2;
+  font-size: 11px;
+}
+
+@keyframes rowFlash {
+  0% { background: rgba(34,211,238,0.4) !important; }
+  100% { background: transparent; }
+}
+.row.just-updated { animation: rowFlash 0.8s ease-out; }
+
+.add-btn {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; width: 100%; padding: 12px;
+  background: #f3f7fb; color: #1a2230;
+  border: 0; border-top: 1px dashed #c5cfdc;
+  cursor: pointer; font-family: inherit;
+  font-size: 13px; font-weight: 600;
+}
+
+/* Sweep mode table */
+.sweep .thead, .sweep .row {
+  grid-template-columns: 64px 64px 50px 70px;
+  gap: 4px; padding: 0 8px;
+}
+.sweep .row {
+  height: 34px;
+  font-size: 11px;
+}
+.sweep .row .strike-val { font-size: 11.5px; }
+.sweep .row .prem-val { font-size: 9.5px; }
+.sweep .scroll-body {
+  max-height: 58vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.lev-cell {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700; color: #8b5cf6;
+}
+
+/* Sweep controls */
+.sweep-controls {
+  background: #f3f7fb;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e5ebf2;
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+}
+.sweep-pick { display: flex; flex-direction: column; gap: 3px; }
+.sweep-pick label {
+  font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: #5a6478; font-weight: 700;
+}
+.sweep-pick select, .sweep-pick input {
+  background: #fff; border: 1px solid #d0d7e0;
+  border-radius: 6px; padding: 6px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-weight: 700; color: #1a2230;
+  appearance: none; outline: none; width: 100%;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%231a2230' d='M0 0l5 6 5-6z'/></svg>");
+  background-repeat: no-repeat; background-position: right 8px center;
+}
+.sweep-pick input { background-image: none; padding-right: 8px; color: #16a34a; }
+
+/* Modal */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: flex-end; justify-content: center;
+  z-index: 50;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: #14171f; border: 1px solid #2a3040;
+  border-radius: 16px 16px 0 0;
+  width: 100%; max-width: 540px;
+  padding: 18px; max-height: 90vh;
+  display: flex; flex-direction: column;
+  animation: slideUp 0.22s ease-out;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal-title {
+  font-size: 16px; font-weight: 700;
+  margin-bottom: 12px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px; font-weight: 600;
+  margin-top: -8px;
+  margin-bottom: 14px;
+  display: flex; gap: 8px; align-items: center;
+}
+.modal-subtitle .sub-ticker { color: #22d3ee; }
+.modal-subtitle .sub-spot { color: #22c55e; }
+.modal-subtitle .sub-sep { color: #5a6478; }
+.modal-close {
+  background: rgba(255,255,255,0.08); border: 0; color: #fff;
+  width: 28px; height: 28px; border-radius: 50%;
+  font-size: 14px; cursor: pointer;
+}
+.field { margin-bottom: 12px; }
+.field-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: #8a92a5; margin-bottom: 6px; font-weight: 600;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.field-hint { color: #fbbf24; text-transform: none; letter-spacing: 0; font-size: 11px; font-weight: 600; }
+.field select {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 11px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px; font-weight: 600; color: #22d3ee;
+  outline: none; appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%2322d3ee' d='M0 0l5 6 5-6z'/></svg>");
+  background-repeat: no-repeat; background-position: right 14px center;
+}
+
+.wheel-container {
+  position: relative; height: 180px;
+  overflow: hidden; border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.wheel-scroll {
+  height: 100%; overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.wheel-scroll::-webkit-scrollbar { display: none; }
+.wheel-pad { height: 70px; }
+.wheel-item {
+  height: 40px; scroll-snap-align: center;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px; font-weight: 600;
+  color: rgba(255,255,255,0.3);
+  transition: color 0.15s, font-size 0.15s, font-weight 0.15s;
+  user-select: none;
+}
+.wheel-item.near { color: rgba(255,255,255,0.55); font-size: 19px; }
+.wheel-item.active { color: #22d3ee; font-size: 26px; font-weight: 800; }
+.wheel-band {
+  position: absolute; top: 70px; height: 40px;
+  left: 14px; right: 14px;
+  border-top: 1.5px solid rgba(34,211,238,0.5);
+  border-bottom: 1.5px solid rgba(34,211,238,0.5);
+  background: rgba(34,211,238,0.06);
+  pointer-events: none; border-radius: 4px;
+}
+
+.modal-actions { display: flex; gap: 8px; margin-top: 14px; }
+.btn {
+  flex: 1; padding: 13px; border: 0; border-radius: 10px;
+  font-family: inherit; font-size: 14px; font-weight: 700;
+  cursor: pointer;
+}
+.btn-save { background: #22c55e; color: #000; }
+.btn-delete { background: rgba(239,68,68,0.15); color: #ef4444; flex: 0 0 auto; padding: 13px 18px; border: 1px solid rgba(239,68,68,0.3); }
+
+/* Live preview inside modal */
+.preview {
+  background: rgba(34,211,238,0.06);
+  border: 1px solid rgba(34,211,238,0.25);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-top: 14px;
+}
+.preview-label {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em;
+  color: #67e8f9; font-weight: 700; margin-bottom: 8px;
+}
+.preview-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+}
+.preview-cell {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.preview-cell-label {
+  font-size: 10px; color: #8a92a5; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.preview-cell-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px; font-weight: 700;
+}
+.preview-cell.cost .preview-cell-value { color: #22c55e; }
+.preview-cell.bept .preview-cell-value { color: #fff; }
+.preview-cell.move .preview-cell-value { color: #fbbf24; }
+.preview-cell.cagr .preview-cell-value { color: #22d3ee; font-size: 18px; }
+
+@keyframes flashUpdate {
+  0% { background: rgba(34,211,238,0.3); }
+  100% { background: transparent; }
+}
+.preview-cell-value.flash {
+  animation: flashUpdate 0.5s ease-out;
+  border-radius: 4px;
+  padding: 0 4px;
+  margin: 0 -4px;
+}
+
+.ticker-search {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-family: inherit; font-size: 15px; color: #fff;
+  outline: none; margin-bottom: 10px;
+}
+.ticker-search::placeholder { color: #6a7286; }
+.ticker-list { flex: 1; overflow-y: auto; margin: 0 -18px -18px; padding: 0 18px 12px; -webkit-overflow-scrolling: touch; }
+.ticker-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  cursor: pointer;
+}
+.ticker-item:active { background: rgba(255,255,255,0.05); }
+.ticker-info { display: flex; flex-direction: column; gap: 2px; }
+.ticker-sym { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; color: #22d3ee; }
+.ticker-name { font-size: 11px; color: #c8d0de; }
+.ticker-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.ticker-spot { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #22c55e; font-weight: 600; }
+.ticker-iv { font-size: 11px; color: #fbbf24; font-weight: 600; }
+.ticker-empty { padding: 24px; text-align: center; color: #6a7286; font-size: 13px; }
+
+.footer-note {
+  margin-top: 10px; text-align: center;
+  font-size: 10.5px; color: #6a7286; font-style: italic;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="controls">
+    <div class="ctrl" onclick="openTickerPicker()">
+      <div class="ctrl-label">Ticker</div>
+      <div class="ticker-display" id="tickerDisplay">TSLA</div>
+    </div>
+    <div class="ctrl green">
+      <div class="ctrl-label">Spot $</div>
+      <input id="spot" type="number" step="0.01" value="450.00" />
+    </div>
+    <div class="ctrl amber">
+      <div class="ctrl-label">IV %</div>
+      <input id="iv" type="number" step="1" value="55" />
+    </div>
+    <div class="ctrl magenta">
+      <div class="ctrl-label">IV Rank</div>
+      <input id="ivRank" type="number" step="1" min="0" max="100" value="45" />
+      <span class="ivr-badge fair" id="ivrBadge">FAIR</span>
+    </div>
+  </div>
+
+  <div class="title">CAGR to Breakeven on Top <em>LEAPS</em></div>
+
+  <div class="tabs">
+    <button class="tab on" data-mode="curated" onclick="setMode('curated')">
+      Picks
+      <span class="hint">curated comparison</span>
+    </button>
+    <button class="tab" data-mode="sweep" onclick="setMode('sweep')">
+      Sweep
+      <span class="hint">full chain at one date</span>
+    </button>
+  </div>
+
+  <!-- CURATED MODE -->
+  <div id="curatedView" class="curated">
+    <div class="card">
+      <div class="card-title">
+        <span>Your Comparison Set</span>
+        <span class="sub">$<span id="basePxC">450.00</span> base</span>
+      </div>
+      <div class="thead">
+        <div class="th left">Exp. Date</div>
+        <div class="th">Strike<br/><span style="font-weight:500;opacity:0.85;">Cost</span></div>
+        <div class="th">BEPt</div>
+        <div class="th">$/Day</div>
+        <div class="th">Lev.</div>
+        <div class="th right">CAGR Req.</div>
+      </div>
+      <div id="tbodyC"></div>
+      <button class="add-btn" onclick="openEdit(-1)">＋ Add LEAP</button>
+    </div>
+  </div>
+
+  <!-- SWEEP MODE -->
+  <div id="sweepView" class="sweep" style="display:none;">
+    <div class="card">
+      <div class="card-title">
+        <span>Full Strike Chain</span>
+        <span class="sub">$<span id="basePxS">450.00</span> base</span>
+      </div>
+      <div class="sweep-controls">
+        <div class="sweep-pick">
+          <label>Expiration</label>
+          <select id="sweepExp"></select>
+        </div>
+        <div class="sweep-pick">
+          <label>Range ± ATM</label>
+          <select id="sweepRange">
+            <option value="0.5">±50%</option>
+            <option value="0.35" selected>±35%</option>
+            <option value="0.20">±20%</option>
+          </select>
+        </div>
+        <div class="sweep-pick">
+          <label>Expected Growth %</label>
+          <input id="expectedGrowth" type="number" step="1" value="10" />
+        </div>
+      </div>
+      <div class="thead">
+        <div class="th">Strike / Cost</div>
+        <div class="th">BEPt</div>
+        <div class="th">Lev.</div>
+        <div class="th right">CAGR</div>
+      </div>
+      <div class="scroll-body" id="tbodyS"></div>
+    </div>
+  </div>
+
+  <div class="footer-note" id="footNote">Tap a row to edit · BEST and WORST update live</div>
+
+</div>
+
+<!-- Edit LEAP Modal -->
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="modalTitle">Edit LEAP</span>
+      <button class="modal-close" onclick="closeEdit()">✕</button>
+    </div>
+    <div class="modal-subtitle">
+      <span class="sub-ticker" id="subTicker">TSLA</span>
+      <span class="sub-sep">·</span>
+      <span class="sub-spot" id="subSpot">$450.00</span>
+      <span class="sub-sep">spot</span>
+    </div>
+    <div class="field">
+      <div class="field-label">Expiration</div>
+      <select id="editExp"></select>
+    </div>
+    <div class="field">
+      <div class="field-label">
+        <span>Strike Price</span>
+        <span class="field-hint">step: $<span id="stepHint">5</span></span>
+      </div>
+      <div class="wheel-container">
+        <div class="wheel-band"></div>
+        <div class="wheel-scroll" id="strikeWheel">
+          <div class="wheel-pad"></div>
+          <div class="wheel-pad"></div>
+        </div>
+      </div>
+    </div>
+    <div class="preview">
+      <div class="preview-label">Live preview · updates as you change strike or date</div>
+      <div class="preview-grid">
+        <div class="preview-cell cost">
+          <span class="preview-cell-label">Cost</span>
+          <span class="preview-cell-value" id="prevCost">—</span>
+        </div>
+        <div class="preview-cell bept">
+          <span class="preview-cell-label">Breakeven</span>
+          <span class="preview-cell-value" id="prevBept">—</span>
+        </div>
+        <div class="preview-cell move">
+          <span class="preview-cell-label">$ to BE</span>
+          <span class="preview-cell-value" id="prevMove">—</span>
+        </div>
+        <div class="preview-cell cagr">
+          <span class="preview-cell-label">CAGR Req.</span>
+          <span class="preview-cell-value" id="prevCagr">—</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-delete" id="btnDelete" onclick="deleteRow()">🗑</button>
+      <button class="btn btn-save" onclick="saveEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ticker Picker -->
+<div class="modal-backdrop" id="tickerModal">
+  <div class="modal">
+    <div class="modal-title">
+      <span>Select Stock</span>
+      <button class="modal-close" onclick="closeTickerPicker()">✕</button>
+    </div>
+    <input class="ticker-search" id="tickerSearch" placeholder="Search ticker or company..." autocomplete="off" />
+    <div class="ticker-list" id="tickerList"></div>
+  </div>
+</div>
+
+<script>
+const TICKERS = [
+  { sym: 'TSLA', name: 'Tesla, Inc.',          spot: 450.00, iv: 55, ivr: 45 },
+  { sym: 'MSTR', name: 'Strategy Inc.',        spot: 195.71, iv: 70, ivr: 60 },
+  { sym: 'NVDA', name: 'NVIDIA Corp.',         spot: 175.00, iv: 50, ivr: 30 },
+  { sym: 'AAPL', name: 'Apple Inc.',           spot: 225.00, iv: 25, ivr: 35 },
+  { sym: 'META', name: 'Meta Platforms',       spot: 575.00, iv: 35, ivr: 40 },
+  { sym: 'GOOGL',name: 'Alphabet Inc.',        spot: 175.00, iv: 30, ivr: 35 },
+  { sym: 'AMZN', name: 'Amazon.com Inc.',      spot: 215.00, iv: 30, ivr: 30 },
+  { sym: 'MSFT', name: 'Microsoft Corp.',      spot: 425.00, iv: 25, ivr: 25 },
+  { sym: 'AMD',  name: 'Adv. Micro Devices',   spot: 165.00, iv: 50, ivr: 50 },
+  { sym: 'COIN', name: 'Coinbase Global',      spot: 295.00, iv: 75, ivr: 65 },
+  { sym: 'PLTR', name: 'Palantir Tech.',       spot:  85.00, iv: 70, ivr: 55 },
+  { sym: 'HOOD', name: 'Robinhood Markets',    spot:  50.00, iv: 65, ivr: 60 },
+  { sym: 'NFLX', name: 'Netflix Inc.',         spot: 720.00, iv: 30, ivr: 35 },
+  { sym: 'BABA', name: 'Alibaba Group',        spot:  95.00, iv: 40, ivr: 75 },
+  { sym: 'GME',  name: 'GameStop Corp.',       spot:  25.00, iv: 100, ivr: 80 },
+  { sym: 'IBIT', name: 'iShares Bitcoin ETF',  spot:  60.00, iv: 60, ivr: 55 },
+  { sym: 'SPY',  name: 'S&P 500 ETF',          spot: 580.00, iv: 15, ivr: 20 },
+  { sym: 'QQQ',  name: 'NASDAQ-100 ETF',       spot: 500.00, iv: 18, ivr: 25 },
+];
+
+function ncdf(x) {
+  const a1=0.254829592, a2=-0.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429, p=0.3275911;
+  const sign = x<0?-1:1;
+  x = Math.abs(x)/Math.sqrt(2);
+  const t = 1.0/(1.0+p*x);
+  const y = 1.0 - (((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+  return 0.5*(1.0+sign*y);
+}
+function bsCall(S, K, T, r, sigma) {
+  const d1 = (Math.log(S/K) + (r+sigma*sigma/2)*T)/(sigma*Math.sqrt(T));
+  const d2 = d1 - sigma*Math.sqrt(T);
+  return S*ncdf(d1) - K*Math.exp(-r*T)*ncdf(d2);
+}
+function strikeStep(spot) {
+  if (spot < 5) return 0.50;
+  if (spot < 25) return 1;
+  if (spot < 100) return 2.50;
+  if (spot < 500) return 5;
+  if (spot < 1000) return 10;
+  return 25;
+}
+
+const EXPIRATIONS = [
+  { label: 'Dec 18, 2026', date: new Date('2026-12-18') },
+  { label: 'Jan 15, 2027', date: new Date('2027-01-15') },
+  { label: 'Mar 19, 2027', date: new Date('2027-03-19') },
+  { label: 'Jun 18, 2027', date: new Date('2027-06-18') },
+  { label: 'Sep 17, 2027', date: new Date('2027-09-17') },
+  { label: 'Dec 17, 2027', date: new Date('2027-12-17') },
+  { label: 'Jan 21, 2028', date: new Date('2028-01-21') },
+  { label: 'Jun 16, 2028', date: new Date('2028-06-16') },
+  { label: 'Dec 15, 2028', date: new Date('2028-12-15') },
+];
+const TODAY = new Date('2026-05-16');
+function daysUntil(d) { return Math.round((d - TODAY) / (1000*60*60*24)); }
+
+// Populate exp dropdowns
+[document.getElementById('editExp'), document.getElementById('sweepExp')].forEach(sel => {
+  EXPIRATIONS.forEach((e, i) => {
+    const o = document.createElement('option');
+    o.value = i; o.textContent = e.label;
+    sel.appendChild(o);
+  });
+});
+document.getElementById('sweepExp').value = 8; // Default to Dec 15 2028 (longest LEAP)
+
+let rows = [
+  { expIdx: 0, strike: 500 },
+  { expIdx: 1, strike: 500 },
+  { expIdx: 5, strike: 700 },
+  { expIdx: 1, strike: 400 },
+  { expIdx: 1, strike: 700 },
+  { expIdx: 1, strike: 600 },
+  { expIdx: 3, strike: 600 },
+  { expIdx: 6, strike: 940 },
+];
+let editingIdx = null;
+let wheelValue = null;
+let mode = 'curated';
+
+function colorFor(t) {
+  const stops = [[34,197,94],[132,204,22],[234,179,8],[249,115,22],[239,68,68]];
+  const x = t*(stops.length-1);
+  const i = Math.floor(x), f = x-i;
+  if (i >= stops.length-1) return `rgba(${stops[stops.length-1].join(',')},0.55)`;
+  const a = stops[i], b = stops[i+1];
+  return `rgba(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)},0.55)`;
+}
+function fmt(n) { return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function pct(n) { return (n*100).toFixed(2) + '%'; }
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === m));
+  document.getElementById('curatedView').style.display = m === 'curated' ? '' : 'none';
+  document.getElementById('sweepView').style.display = m === 'sweep' ? '' : 'none';
+  document.getElementById('footNote').textContent = m === 'curated'
+    ? 'Tap any row to edit · BEST and WORST update live'
+    : 'Full chain at one expiration · color-graded by CAGR · ATM marked';
+  render();
+}
+
+function renderCurated(spot, sigma, r) {
+  document.getElementById('basePxC').textContent = spot.toFixed(2);
+  const computed = rows.map(row => {
+    const exp = EXPIRATIONS[row.expIdx];
+    const days = daysUntil(exp.date);
+    const T = days / 365;
+    const premium = bsCall(spot, row.strike, T, r, sigma);
+    const bept = row.strike + premium;
+    const delta = bept - spot;
+    const cagr = Math.pow(bept/spot, 365/days) - 1;
+    const perDay = premium / days;
+    const leverage = spot / premium;
+    return { ...row, expLabel: exp.label, days, premium, bept, delta, cagr, perDay, leverage };
+  });
+  const cagrs = computed.map(c => c.cagr);
+  const minC = Math.min(...cagrs), maxC = Math.max(...cagrs);
+  const bestIdx = cagrs.indexOf(minC), worstIdx = cagrs.indexOf(maxC);
+  const perDays = computed.map(c => c.perDay);
+  const minPerDay = Math.min(...perDays);
+  const timePickIdx = perDays.indexOf(minPerDay);
+
+  const tbody = document.getElementById('tbodyC');
+  tbody.innerHTML = '';
+  computed.forEach((c, i) => {
+    const t = (c.cagr - minC) / (maxC - minC || 1);
+    const color = colorFor(t);
+    const isBest = i === bestIdx, isWorst = i === worstIdx;
+    const isTimePick = i === timePickIdx && !isBest && !isWorst;
+    const div = document.createElement('div');
+    div.className = 'row'
+      + (isBest ? ' best' : '')
+      + (isWorst ? ' worst' : '')
+      + (isTimePick ? ' timepick' : '');
+    div.onclick = () => openEdit(i);
+    div.innerHTML = `
+      <div class="date">
+        <span>${c.expLabel}</span>
+        <span style="font-size:9px;color:#5a6478;font-weight:500;">${c.days}d</span>
+        ${isBest ? '<span class="marker">★ BEST</span>' : ''}
+        ${isWorst ? '<span class="marker">⚠ WORST</span>' : ''}
+        ${isTimePick ? '<span class="marker">⏱ TIME</span>' : ''}
+      </div>
+      <div class="strike">
+        <span class="strike-val">${c.strike}</span>
+        <span class="prem-val">$${c.premium.toFixed(2)}</span>
+      </div>
+      <div>${fmt(c.bept)}</div>
+      <div class="perday-cell">$${c.perDay.toFixed(2)}</div>
+      <div class="lev-cell">${c.leverage.toFixed(1)}x</div>
+      <div class="cagr-cell">
+        <div class="cagr-bg" style="background:${color};"></div>
+        <span class="cagr-val">${pct(c.cagr)}</span>
+      </div>
+    `;
+    tbody.appendChild(div);
+  });
+}
+
+function renderSweep(spot, sigma, r) {
+  document.getElementById('basePxS').textContent = spot.toFixed(2);
+  const expIdx = parseInt(document.getElementById('sweepExp').value);
+  const rangePct = parseFloat(document.getElementById('sweepRange').value);
+  const expectedGrowth = (parseFloat(document.getElementById('expectedGrowth').value) || 10) / 100;
+  const exp = EXPIRATIONS[expIdx];
+  const days = daysUntil(exp.date);
+  const T = days / 365;
+  const step = strikeStep(spot);
+  const atm = Math.round(spot / step) * step;
+  const minStrike = Math.max(step, Math.round((spot * (1 - rangePct)) / step) * step);
+  const maxStrike = Math.round((spot * (1 + rangePct)) / step) * step;
+
+  const computed = [];
+  for (let K = minStrike; K <= maxStrike; K += step) {
+    K = +K.toFixed(2);
+    const premium = bsCall(spot, K, T, r, sigma);
+    const bept = K + premium;
+    const cagr = Math.pow(bept/spot, 365/days) - 1;
+    const leverage = spot / premium;
+    computed.push({ K, premium, bept, cagr, leverage, isAtm: K === atm });
+  }
+  const cagrs = computed.map(c => c.cagr);
+  const minC = Math.min(...cagrs), maxC = Math.max(...cagrs);
+  const worstIdx = cagrs.indexOf(maxC);
+
+  // BALANCED: highest leverage among rows where CAGR <= expected growth
+  let balancedIdx = -1;
+  let bestLevWithinBudget = -1;
+  computed.forEach((c, i) => {
+    if (c.cagr <= expectedGrowth && c.leverage > bestLevWithinBudget) {
+      bestLevWithinBudget = c.leverage;
+      balancedIdx = i;
+    }
+  });
+  // Fallback: if no strike meets the threshold, use the one with lowest CAGR
+  if (balancedIdx === -1) balancedIdx = cagrs.indexOf(minC);
+
+  const tbody = document.getElementById('tbodyS');
+  tbody.innerHTML = '';
+  computed.forEach((c, i) => {
+    const t = (c.cagr - minC) / (maxC - minC || 1);
+    const color = colorFor(t);
+    const isBalanced = i === balancedIdx;
+    const isWorst = i === worstIdx;
+    const div = document.createElement('div');
+    div.className = 'row' + (isBalanced ? ' best' : '') + (isWorst ? ' worst' : '') + (c.isAtm && !isBalanced && !isWorst ? ' atm' : '');
+    div.innerHTML = `
+      <div class="strike">
+        <span class="strike-val">${c.K}</span>
+        <span class="prem-val">$${c.premium.toFixed(2)}</span>
+        ${isBalanced ? '<span class="marker">★ BALANCED</span>' : isWorst ? '<span class="marker">⚠ WORST</span>' : c.isAtm ? '<span class="marker">ATM</span>' : ''}
+      </div>
+      <div>${fmt(c.bept)}</div>
+      <div class="lev-cell">${c.leverage.toFixed(1)}x</div>
+      <div class="cagr-cell">
+        <div class="cagr-bg" style="background:${color};"></div>
+        <span class="cagr-val">${pct(c.cagr)}</span>
+      </div>
+    `;
+    tbody.appendChild(div);
+  });
+}
+
+function updateIvRankBadge() {
+  const v = parseFloat(document.getElementById('ivRank').value) || 0;
+  const badge = document.getElementById('ivrBadge');
+  badge.classList.remove('cheap', 'fair', 'pricey');
+  if (v < 30) { badge.textContent = 'CHEAP'; badge.classList.add('cheap'); }
+  else if (v < 70) { badge.textContent = 'FAIR'; badge.classList.add('fair'); }
+  else { badge.textContent = 'PRICEY'; badge.classList.add('pricey'); }
+}
+
+function render() {
+  updateIvRankBadge();
+  const spot = parseFloat(document.getElementById('spot').value) || 450;
+  const ivPct = parseFloat(document.getElementById('iv').value) || 55;
+  const sigma = ivPct / 100;
+  const r = 0.045;
+  if (mode === 'curated') renderCurated(spot, sigma, r);
+  else renderSweep(spot, sigma, r);
+}
+
+// Wheel picker (curated only)
+function buildWheel(currentStrike) {
+  const spot = parseFloat(document.getElementById('spot').value) || 450;
+  const step = strikeStep(spot);
+  document.getElementById('stepHint').textContent = step % 1 === 0 ? step : step.toFixed(2);
+  const wheel = document.getElementById('strikeWheel');
+  wheel.innerHTML = '<div class="wheel-pad"></div>';
+  const rounded = Math.round(currentStrike / step) * step;
+  for (let i = -25; i <= 25; i++) {
+    const v = +(rounded + i * step).toFixed(2);
+    if (v <= 0) continue;
+    const item = document.createElement('div');
+    item.className = 'wheel-item';
+    item.dataset.value = v;
+    item.textContent = v % 1 === 0 ? v : v.toFixed(2);
+    item.onclick = () => wheel.scrollTo({ top: item.offsetTop - (wheel.clientHeight - item.clientHeight) / 2, behavior: 'smooth' });
+    wheel.appendChild(item);
+  }
+  const padBottom = document.createElement('div');
+  padBottom.className = 'wheel-pad';
+  wheel.appendChild(padBottom);
+  setTimeout(() => {
+    const target = wheel.querySelector(`[data-value="${rounded}"]`);
+    if (target) {
+      wheel.scrollTop = target.offsetTop - (wheel.clientHeight - target.clientHeight) / 2;
+      updateWheelHighlight();
+    }
+  }, 30);
+}
+function updatePreview() {
+  if (!document.getElementById('modal').classList.contains('open')) return;
+  const expIdx = parseInt(document.getElementById('editExp').value);
+  const strike = wheelValue;
+
+  const cells = ['prevCost', 'prevBept', 'prevMove', 'prevCagr'];
+
+  if (!strike || strike <= 0 || isNaN(expIdx)) {
+    cells.forEach(id => document.getElementById(id).textContent = '—');
+    return;
+  }
+
+  const spot = parseFloat(document.getElementById('spot').value) || 450;
+  const ivPct = parseFloat(document.getElementById('iv').value) || 55;
+  const sigma = ivPct / 100;
+  const r = 0.045;
+  const exp = EXPIRATIONS[expIdx];
+  const days = daysUntil(exp.date);
+  const T = days / 365;
+  const premium = bsCall(spot, strike, T, r, sigma);
+  const bept = strike + premium;
+  const move = bept - spot;
+  const cagr = Math.pow(bept/spot, 365/days) - 1;
+
+  const newValues = {
+    prevCost: '$' + premium.toFixed(2),
+    prevBept: '$' + bept.toFixed(2),
+    prevMove: (move >= 0 ? '+$' : '-$') + Math.abs(move).toFixed(2),
+    prevCagr: (cagr*100).toFixed(2) + '%'
+  };
+
+  Object.entries(newValues).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el.textContent !== val) {
+      el.textContent = val;
+      el.classList.remove('flash');
+      void el.offsetWidth; // force reflow to restart animation
+      el.classList.add('flash');
+    }
+  });
+}
+
+function applyLiveEdit() {
+  if (editingIdx === null || editingIdx === -1) return;
+  if (!document.getElementById('modal').classList.contains('open')) return;
+  const expIdx = parseInt(document.getElementById('editExp').value);
+  const strike = wheelValue;
+  if (!strike || strike <= 0 || isNaN(expIdx)) return;
+  rows[editingIdx] = { expIdx, strike };
+  render();
+  // Flash the updated row
+  setTimeout(() => {
+    const tbody = document.getElementById('tbodyC');
+    const row = tbody.children[editingIdx];
+    if (row) {
+      row.classList.remove('just-updated');
+      void row.offsetWidth;
+      row.classList.add('just-updated');
+    }
+  }, 10);
+}
+
+function updateWheelHighlight() {
+  const wheel = document.getElementById('strikeWheel');
+  const wheelCenter = wheel.scrollTop + wheel.clientHeight / 2;
+  const items = wheel.querySelectorAll('.wheel-item');
+  let closest = null, closestDist = Infinity;
+  items.forEach(item => {
+    const itemCenter = item.offsetTop + item.clientHeight / 2;
+    const dist = Math.abs(itemCenter - wheelCenter);
+    item.classList.remove('active', 'near');
+    if (dist < closestDist) { closestDist = dist; closest = item; }
+  });
+  items.forEach(item => {
+    const itemCenter = item.offsetTop + item.clientHeight / 2;
+    const dist = Math.abs(itemCenter - wheelCenter);
+    if (item === closest) item.classList.add('active');
+    else if (dist < 60) item.classList.add('near');
+  });
+  if (closest) wheelValue = parseFloat(closest.dataset.value);
+  updatePreview();
+  applyLiveEdit();
+}
+document.getElementById('editExp').addEventListener('change', () => { updatePreview(); applyLiveEdit(); });
+document.getElementById('editExp').addEventListener('input', () => { updatePreview(); applyLiveEdit(); });
+document.getElementById('strikeWheel').addEventListener('scroll', updateWheelHighlight);
+
+function openEdit(idx) {
+  editingIdx = idx;
+  const isNew = idx === -1;
+  document.getElementById('modalTitle').textContent = isNew ? 'Add LEAP' : 'Edit LEAP';
+  document.getElementById('btnDelete').style.display = isNew ? 'none' : 'block';
+  const spot = parseFloat(document.getElementById('spot').value) || 450;
+  document.getElementById('subTicker').textContent = document.getElementById('tickerDisplay').textContent;
+  document.getElementById('subSpot').textContent = '$' + spot.toFixed(2);
+  if (isNew) {
+    document.getElementById('editExp').value = 1;
+    buildWheel(Math.round(spot / strikeStep(spot)) * strikeStep(spot));
+  } else {
+    document.getElementById('editExp').value = rows[idx].expIdx;
+    buildWheel(rows[idx].strike);
+  }
+  document.getElementById('modal').classList.add('open');
+}
+function closeEdit() {
+  document.getElementById('modal').classList.remove('open');
+  editingIdx = null;
+}
+function saveEdit() {
+  const expIdx = parseInt(document.getElementById('editExp').value);
+  const strike = wheelValue;
+  if (!strike || strike <= 0 || isNaN(expIdx)) { alert('Invalid strike or expiration'); return; }
+  let savedIdx;
+  if (editingIdx === -1) {
+    rows.push({ expIdx, strike });
+    savedIdx = rows.length - 1;
+  } else {
+    rows[editingIdx] = { expIdx, strike };
+    savedIdx = editingIdx;
+  }
+  closeEdit();
+  render();
+  // Flash the row that was just saved
+  setTimeout(() => {
+    const tbody = document.getElementById('tbodyC');
+    const row = tbody.children[savedIdx];
+    if (row) {
+      row.classList.remove('just-updated');
+      void row.offsetWidth;
+      row.classList.add('just-updated');
+      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, 50);
+}
+function deleteRow() {
+  if (editingIdx !== null && editingIdx !== -1) {
+    rows.splice(editingIdx, 1);
+    closeEdit();
+    render();
+  }
+}
+
+// Ticker picker
+function renderTickerList(filter = '') {
+  const list = document.getElementById('tickerList');
+  const f = filter.toUpperCase().trim();
+  list.innerHTML = '';
+  const matches = TICKERS.filter(t => t.sym.includes(f) || t.name.toUpperCase().includes(f));
+  const isTickerLike = /^[A-Z]{1,5}$/.test(f);
+  const exactMatch = TICKERS.find(t => t.sym === f);
+  if (isTickerLike && !exactMatch) {
+    const customDiv = document.createElement('div');
+    customDiv.className = 'ticker-item';
+    customDiv.style.borderBottom = '1px solid rgba(34,211,238,0.3)';
+    customDiv.style.background = 'rgba(34,211,238,0.04)';
+    customDiv.onclick = () => selectTicker({ sym: f, name: 'Custom — adjust Spot & IV above', spot: 100, iv: 50 });
+    customDiv.innerHTML = `
+      <div class="ticker-info">
+        <span class="ticker-sym">＋ Use ${f}</span>
+        <span class="ticker-name">Add as custom — adjust spot & IV after</span>
+      </div>
+      <div class="ticker-meta"><span style="color:#22d3ee;font-size:18px;">→</span></div>
+    `;
+    list.appendChild(customDiv);
+  }
+  if (matches.length === 0 && !isTickerLike) {
+    list.innerHTML += '<div class="ticker-empty">Type a ticker symbol to add it as a custom stock.</div>';
+    return;
+  }
+  matches.forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'ticker-item';
+    div.onclick = () => selectTicker(t);
+    const ivrColor = t.ivr < 30 ? '#22c55e' : t.ivr < 70 ? '#fbbf24' : '#ef4444';
+    const ivrLabel = t.ivr < 30 ? 'CHEAP' : t.ivr < 70 ? 'FAIR' : 'PRICEY';
+    div.innerHTML = `
+      <div class="ticker-info">
+        <span class="ticker-sym">${t.sym}</span>
+        <span class="ticker-name">${t.name}</span>
+      </div>
+      <div class="ticker-meta">
+        <span class="ticker-spot">$${t.spot.toFixed(2)}</span>
+        <span style="font-size:10px;color:${ivrColor};font-weight:700;">IVR ${t.ivr} · ${ivrLabel}</span>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+}
+function openTickerPicker() {
+  document.getElementById('tickerSearch').value = '';
+  renderTickerList();
+  document.getElementById('tickerModal').classList.add('open');
+  setTimeout(() => document.getElementById('tickerSearch').focus(), 100);
+}
+function closeTickerPicker() {
+  document.getElementById('tickerModal').classList.remove('open');
+}
+function selectTicker(t) {
+  const oldSpot = parseFloat(document.getElementById('spot').value) || 450;
+  const newSpot = t.spot;
+  const newStep = strikeStep(newSpot);
+  rows = rows.map(r => {
+    const moneyness = r.strike / oldSpot;
+    const raw = moneyness * newSpot;
+    const rounded = Math.round(raw / newStep) * newStep;
+    return { expIdx: r.expIdx, strike: Math.max(newStep, +rounded.toFixed(2)) };
+  });
+  document.getElementById('tickerDisplay').textContent = t.sym;
+  document.getElementById('spot').value = newSpot.toFixed(2);
+  document.getElementById('iv').value = t.iv;
+  document.getElementById('ivRank').value = t.ivr ?? 50;
+  closeTickerPicker();
+  render();
+}
+document.getElementById('tickerSearch').addEventListener('input', e => renderTickerList(e.target.value));
+document.getElementById('tickerModal').addEventListener('click', e => {
+  if (e.target.id === 'tickerModal') closeTickerPicker();
+});
+
+document.getElementById('spot').addEventListener('input', render);
+document.getElementById('iv').addEventListener('input', render);
+document.getElementById('ivRank').addEventListener('input', render);
+document.getElementById('sweepExp').addEventListener('change', render);
+document.getElementById('sweepRange').addEventListener('change', render);
+document.getElementById('expectedGrowth').addEventListener('input', render);
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target.id === 'modal') closeEdit();
+});
+
+render();
+</script>
+
+</body>
+</html>
