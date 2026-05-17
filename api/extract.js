@@ -56,8 +56,10 @@ Required JSON structure:
       "strike": number,
       "call_last": number (or null),
       "call_delta": number (or null, decimal like 0.65),
+      "call_iv": number (or null, decimal like 0.4768 for 47.68%, or already-decimal 0.48),
       "put_last": number (or null),
-      "put_delta": number (or null, can be negative or absolute - use what's shown)
+      "put_delta": number (or null, can be negative or absolute - use what's shown),
+      "put_iv": number (or null, same format as call_iv)
     }
   ]
 }
@@ -66,6 +68,7 @@ Rules:
 - Read every strike row visible in the image
 - For prices, parse the actual last/mid value displayed
 - For delta, parse the decimal value shown (e.g. 0.6924, -0.3352)
+- For IV (implied volatility), parse the percentage if shown — convert to decimal (51.69% becomes 0.5169)
 - If a field isn't visible or readable, use null for that field
 - Sort the strikes array in ascending order by strike price
 - If you can't determine the ticker, use "UNKNOWN"

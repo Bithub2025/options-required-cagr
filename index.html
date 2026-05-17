@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CAGR to Breakeven on Top LEAPS</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CAGR">
+<meta name="theme-color" content="#080A10">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -59,41 +66,53 @@ body {
 .ivr-badge.fair { background: rgba(251,191,36,0.2); color: #fbbf24; }
 .ivr-badge.pricey { background: rgba(239,68,68,0.2); color: #ef4444; }
 
-/* Screenshot upload */
+/* Screenshot upload — sleek dark glass */
 .upload-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px 14px;
-  background: linear-gradient(135deg, #8b5cf6, #ec4899);
-  color: white;
-  border: 0;
+  gap: 10px;
+  padding: 11px 16px;
+  background: rgba(34, 211, 238, 0.06);
+  color: #22d3ee;
+  border: 1px solid rgba(34, 211, 238, 0.35);
   border-radius: 10px;
   font-family: inherit;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
+  text-transform: uppercase;
   cursor: pointer;
   width: 100%;
   margin-bottom: 10px;
-  box-shadow: 0 2px 12px rgba(139, 92, 246, 0.25);
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
-.upload-btn:active { transform: scale(0.98); }
-.upload-btn .ic { font-size: 14px; }
+.upload-btn:hover { background: rgba(34, 211, 238, 0.12); border-color: rgba(34, 211, 238, 0.6); }
+.upload-btn:active { transform: scale(0.99); }
+.upload-btn .ic {
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 .upload-btn.loading {
-  background: linear-gradient(135deg, #475569, #64748b);
-  animation: pulse 1.2s ease-in-out infinite;
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
+  animation: pulse 1.4s ease-in-out infinite;
 }
 .upload-btn.success {
-  background: linear-gradient(135deg, #16a34a, #22c55e);
+  background: rgba(34, 197, 94, 0.10);
+  border-color: rgba(34, 197, 94, 0.5);
+  color: #22c55e;
 }
 .upload-status {
-  font-size: 11px;
-  color: #94a3b8;
+  font-size: 10.5px;
+  color: #6b7280;
   text-align: center;
   margin-top: -4px;
   margin-bottom: 10px;
+  letter-spacing: 0.02em;
 }
 .upload-status.error { color: #ef4444; }
 .upload-status.success { color: #22c55e; }
@@ -115,11 +134,11 @@ body {
 .ticker-display::after { content: '▾'; color: #8a92a5; font-size: 9px; }
 .live-pill {
   position: absolute;
-  top: 4px; right: 6px;
-  font-size: 7.5px;
+  bottom: 4px; right: 6px;
+  font-size: 7px;
   font-weight: 800;
-  letter-spacing: 0.06em;
-  padding: 2px 5px;
+  letter-spacing: 0.05em;
+  padding: 1px 4px;
   border-radius: 3px;
   pointer-events: none;
   font-family: 'Bricolage Grotesque', sans-serif;
@@ -274,17 +293,38 @@ body {
 
 /* Sweep mode table */
 .sweep .thead, .sweep .row {
-  grid-template-columns: 56px 56px 38px 38px 60px;
+  grid-template-columns: 70px 54px 38px 38px 60px;
   gap: 3px; padding: 0 6px;
 }
+.sweep .thead { height: 38px; }
 .sweep .row {
-  height: 34px;
+  height: 40px;
   font-size: 11px;
+  align-items: center;
 }
-.sweep .row .strike-val { font-size: 11.5px; }
+.sweep .row .strike { gap: 0; }
+.sweep .row .strike-val { font-size: 12px; }
 .sweep .row .prem-val { font-size: 9.5px; }
+.sweep .row .strike-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.sweep .row .badge-pill {
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: #16a34a;
+  color: #fff;
+  white-space: nowrap;
+}
+.sweep .row .badge-pill.bad { background: #d97706; }
+.sweep .row .badge-pill.atm { background: #fbbf24; color: #1a1a1a; }
 .sweep .scroll-body {
-  max-height: 58vh;
+  max-height: 60vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -499,7 +539,7 @@ body {
     <div class="ctrl" onclick="openTickerPicker()">
       <div class="ctrl-label">Ticker</div>
       <div class="ticker-display" id="tickerDisplay">TSLA</div>
-      <span class="live-pill mock" id="livePill">MOCK</span>
+      <span class="live-pill mock" id="livePill">READY</span>
     </div>
     <div class="ctrl green">
       <div class="ctrl-label">Spot $</div>
@@ -524,7 +564,7 @@ body {
 
   <button class="upload-btn" id="uploadBtn" onclick="document.getElementById('screenshotFile').click()">
     <span class="ic">📷</span>
-    <span id="uploadBtnText">Upload Options Chain Screenshot</span>
+    <span id="uploadBtnText">Import Chain from Screenshot</span>
   </button>
   <input type="file" id="screenshotFile" accept="image/*" style="display:none;" onchange="handleScreenshot(event)" />
   <div class="upload-status" id="uploadStatus"></div>
@@ -595,7 +635,7 @@ body {
     </div>
   </div>
 
-  <div class="footer-note" id="footNote">Tap a row to edit · BEST and WORST update live</div>
+  <div class="footer-note" id="footNote">Tap a row to edit · BALANCED = highest leverage that hits your target</div>
 
 </div>
 
@@ -675,25 +715,39 @@ body {
 // =============================================================================
 
 const TICKERS = [
-  { sym: 'TSLA', name: 'Tesla, Inc.',          spot: 450.00, iv: 55, ivr: 45 },
-  { sym: 'MSTR', name: 'Strategy Inc.',        spot: 195.71, iv: 70, ivr: 60 },
-  { sym: 'NVDA', name: 'NVIDIA Corp.',         spot: 175.00, iv: 50, ivr: 30 },
-  { sym: 'AAPL', name: 'Apple Inc.',           spot: 225.00, iv: 25, ivr: 35 },
-  { sym: 'META', name: 'Meta Platforms',       spot: 575.00, iv: 35, ivr: 40 },
-  { sym: 'GOOGL',name: 'Alphabet Inc.',        spot: 175.00, iv: 30, ivr: 35 },
-  { sym: 'AMZN', name: 'Amazon.com Inc.',      spot: 215.00, iv: 30, ivr: 30 },
-  { sym: 'MSFT', name: 'Microsoft Corp.',      spot: 425.00, iv: 25, ivr: 25 },
-  { sym: 'AMD',  name: 'Adv. Micro Devices',   spot: 165.00, iv: 50, ivr: 50 },
-  { sym: 'COIN', name: 'Coinbase Global',      spot: 295.00, iv: 75, ivr: 65 },
-  { sym: 'PLTR', name: 'Palantir Tech.',       spot:  85.00, iv: 70, ivr: 55 },
-  { sym: 'HOOD', name: 'Robinhood Markets',    spot:  50.00, iv: 65, ivr: 60 },
-  { sym: 'NFLX', name: 'Netflix Inc.',         spot: 720.00, iv: 30, ivr: 35 },
-  { sym: 'BABA', name: 'Alibaba Group',        spot:  95.00, iv: 40, ivr: 75 },
-  { sym: 'GME',  name: 'GameStop Corp.',       spot:  25.00, iv: 100, ivr: 80 },
-  { sym: 'IBIT', name: 'iShares Bitcoin ETF',  spot:  60.00, iv: 60, ivr: 55 },
-  { sym: 'SPY',  name: 'S&P 500 ETF',          spot: 580.00, iv: 15, ivr: 20 },
-  { sym: 'QQQ',  name: 'NASDAQ-100 ETF',       spot: 500.00, iv: 18, ivr: 25 },
+  { sym: 'TSLA', name: 'Tesla, Inc.',          spot: 450.00, iv: 55, ivr: 45, ivMin: 30, ivMax: 90 },
+  { sym: 'MSTR', name: 'Strategy Inc.',        spot: 195.71, iv: 70, ivr: 60, ivMin: 40, ivMax: 130 },
+  { sym: 'NVDA', name: 'NVIDIA Corp.',         spot: 175.00, iv: 50, ivr: 30, ivMin: 25, ivMax: 75 },
+  { sym: 'AAPL', name: 'Apple Inc.',           spot: 225.00, iv: 25, ivr: 35, ivMin: 15, ivMax: 50 },
+  { sym: 'META', name: 'Meta Platforms',       spot: 575.00, iv: 35, ivr: 40, ivMin: 20, ivMax: 60 },
+  { sym: 'GOOGL',name: 'Alphabet Inc.',        spot: 175.00, iv: 30, ivr: 35, ivMin: 18, ivMax: 55 },
+  { sym: 'AMZN', name: 'Amazon.com Inc.',      spot: 215.00, iv: 30, ivr: 30, ivMin: 18, ivMax: 55 },
+  { sym: 'MSFT', name: 'Microsoft Corp.',      spot: 425.00, iv: 25, ivr: 25, ivMin: 15, ivMax: 45 },
+  { sym: 'AMD',  name: 'Adv. Micro Devices',   spot: 165.00, iv: 50, ivr: 50, ivMin: 30, ivMax: 80 },
+  { sym: 'COIN', name: 'Coinbase Global',      spot: 295.00, iv: 75, ivr: 65, ivMin: 50, ivMax: 110 },
+  { sym: 'PLTR', name: 'Palantir Tech.',       spot:  85.00, iv: 70, ivr: 55, ivMin: 40, ivMax: 100 },
+  { sym: 'HOOD', name: 'Robinhood Markets',    spot:  50.00, iv: 65, ivr: 60, ivMin: 35, ivMax: 95 },
+  { sym: 'NFLX', name: 'Netflix Inc.',         spot: 720.00, iv: 30, ivr: 35, ivMin: 20, ivMax: 55 },
+  { sym: 'BABA', name: 'Alibaba Group',        spot:  95.00, iv: 40, ivr: 75, ivMin: 25, ivMax: 65 },
+  { sym: 'GME',  name: 'GameStop Corp.',       spot:  25.00, iv: 100, ivr: 80, ivMin: 50, ivMax: 200 },
+  { sym: 'IBIT', name: 'iShares Bitcoin ETF',  spot:  60.00, iv: 50, ivr: 55, ivMin: 30, ivMax: 80 },
+  { sym: 'SPY',  name: 'S&P 500 ETF',          spot: 580.00, iv: 15, ivr: 20, ivMin: 8, ivMax: 30 },
+  { sym: 'QQQ',  name: 'NASDAQ-100 ETF',       spot: 500.00, iv: 18, ivr: 25, ivMin: 10, ivMax: 35 },
 ];
+
+// Lookup typical IV min/max for a ticker (for IV Rank calculation)
+function getTickerIvRange(sym) {
+  const t = TICKERS.find(x => x.sym === sym);
+  return t ? { ivMin: t.ivMin, ivMax: t.ivMax } : { ivMin: 20, ivMax: 80 };
+}
+
+// Compute IV Rank from current IV using ticker's typical range
+function computeIvRank(currentIv, sym) {
+  const { ivMin, ivMax } = getTickerIvRange(sym);
+  if (ivMax <= ivMin) return 50;
+  const ivr = ((currentIv - ivMin) / (ivMax - ivMin)) * 100;
+  return Math.max(0, Math.min(100, Math.round(ivr)));
+}
 
 // Hardcoded fallback expirations (when Yahoo hasn't loaded yet or fails)
 const FALLBACK_EXPIRATIONS = [
@@ -767,6 +821,15 @@ function colorFor(t) {
   if (i >= stops.length-1) return `rgba(${stops[stops.length-1].join(',')},0.55)`;
   const a = stops[i], b = stops[i+1];
   return `rgba(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)},0.55)`;
+}
+// CAGR color anchored to user's target growth rate.
+// cagr <= target → green (works in your scenario)
+// cagr = target + 20% → red (needs unrealistic growth)
+function colorForCagrVsTarget(cagr, target) {
+  if (cagr <= target) return colorFor(0);
+  const overshoot = cagr - target;
+  const t = Math.min(1, overshoot / 0.20);
+  return colorFor(t);
 }
 function heatColor(value, scale = 100) {
   // 0 = green (good for buyers), scale = red (bad for buyers)
@@ -899,12 +962,11 @@ function getPremium(spot, sigma, r, unix, strike, side = 'call') {
     const price = mid > 0.01 ? mid : (contract.last > 0.01 ? contract.last : 0);
     if (price > 0.01) return { premium: price, isReal: true, bid: contract.bid, ask: contract.ask, iv: contract.iv, delta: contract.delta };
   }
-  // Fall back to Black-Scholes
+  // Fall back to Black-Scholes using the user's IV input — so changing IV actually does something
   const days = daysUntilUnix(unix);
   const T = days / 365;
   const fn = side === 'call' ? bsCall : null;
   if (!fn) return { premium: 0, isReal: false, delta: null };
-  // Approximate delta from BS: N(d1) for calls
   const d1 = (Math.log(spot/strike) + (r + sigma*sigma/2)*T) / (sigma*Math.sqrt(T));
   const approxDelta = ncdf(d1);
   return { premium: fn(spot, strike, T, r, sigma), isReal: false, delta: approxDelta };
@@ -931,7 +993,7 @@ async function handleScreenshot(event) {
   reader.onerror = () => {
     setUploadStatus('Failed to read file', 'error');
     document.getElementById('uploadBtn').classList.remove('loading');
-    document.getElementById('uploadBtnText').textContent = 'Upload Options Chain Screenshot';
+    document.getElementById('uploadBtnText').textContent = 'Import Chain from Screenshot';
   };
   reader.onload = async () => {
     const dataUrl = reader.result;
@@ -952,16 +1014,16 @@ async function handleScreenshot(event) {
       applyScreenshotData(data);
       document.getElementById('uploadBtn').classList.remove('loading');
       document.getElementById('uploadBtn').classList.add('success');
-      document.getElementById('uploadBtnText').textContent = '✓ Loaded — Upload Another';
+      document.getElementById('uploadBtnText').textContent = '✓ Loaded — Import Another';
       setTimeout(() => {
         document.getElementById('uploadBtn').classList.remove('success');
-        document.getElementById('uploadBtnText').textContent = 'Upload Options Chain Screenshot';
+        document.getElementById('uploadBtnText').textContent = 'Import Chain from Screenshot';
       }, 4000);
     } catch (err) {
       console.error('Extract error:', err);
       setUploadStatus('Error: ' + err.message, 'error');
       document.getElementById('uploadBtn').classList.remove('loading');
-      document.getElementById('uploadBtnText').textContent = 'Upload Options Chain Screenshot';
+      document.getElementById('uploadBtnText').textContent = 'Import Chain from Screenshot';
     }
     // Reset file input so user can upload same file again
     event.target.value = '';
@@ -981,6 +1043,8 @@ function applyScreenshotData(data) {
     setUploadStatus('No strikes found in screenshot', 'error');
     return;
   }
+  // Reset manual IVR flag — new chain should set its own IVR
+  ivRankManuallySet = false;
 
   // Update ticker if provided
   if (ticker && ticker !== 'UNKNOWN') {
@@ -991,6 +1055,22 @@ function applyScreenshotData(data) {
   if (spot && spot > 0) {
     document.getElementById('spot').value = spot.toFixed(2);
     lastCommittedSpot = spot;
+  }
+
+  // Compute median IV from screenshot (use call IVs near ATM if possible)
+  const callIvs = strikes
+    .filter(s => s.call_iv != null && s.call_iv > 0)
+    .map(s => s.call_iv);
+  let medianIv = null;
+  if (callIvs.length > 0) {
+    const sorted = [...callIvs].sort((a, b) => a - b);
+    medianIv = sorted[Math.floor(sorted.length / 2)];
+    // Convert to percentage (if it came back as 0.4768, that's 47.68%)
+    const ivPct = medianIv < 2 ? medianIv * 100 : medianIv;
+    document.getElementById('iv').value = Math.round(ivPct);
+    // Auto-compute IV Rank from this IV
+    const sym = ticker && ticker !== 'UNKNOWN' ? ticker : liveData.symbol;
+    document.getElementById('ivRank').value = computeIvRank(ivPct, sym);
   }
 
   // Build expiration entry
@@ -1013,15 +1093,15 @@ function applyScreenshotData(data) {
     expUnix = liveData.expirations[liveData.expirations.length - 1].unix;
   }
 
-  // Build chain data from screenshot strikes
+  // Build chain data from screenshot strikes — now with IV
   const calls = strikes
     .filter(s => s.call_last != null && s.call_last > 0)
     .map(s => ({
       strike: s.strike,
-      bid: s.call_last,    // use last as both for now (screenshot didn't provide bid/ask)
+      bid: s.call_last,
       ask: s.call_last,
       last: s.call_last,
-      iv: 0,
+      iv: s.call_iv != null ? (s.call_iv < 2 ? s.call_iv : s.call_iv / 100) : 0,
       delta: s.call_delta != null ? Math.abs(s.call_delta) : null,
       oi: 0,
       vol: 0,
@@ -1033,7 +1113,7 @@ function applyScreenshotData(data) {
       bid: s.put_last,
       ask: s.put_last,
       last: s.put_last,
-      iv: 0,
+      iv: s.put_iv != null ? (s.put_iv < 2 ? s.put_iv : s.put_iv / 100) : 0,
       delta: s.put_delta != null ? Math.abs(s.put_delta) : null,
       oi: 0,
       vol: 0,
@@ -1052,7 +1132,7 @@ function applyScreenshotData(data) {
   pill.className = 'live-pill live';
   pill.title = 'Data extracted from uploaded screenshot';
 
-  setUploadStatus(`✓ Loaded ${strikes.length} strikes for ${ticker || 'ticker'} · ${liveData.expirations.find(e => e.unix === expUnix)?.label || ''}`, 'success');
+  setUploadStatus(`✓ Loaded ${strikes.length} strikes for ${ticker || 'ticker'} · ${liveData.expirations.find(e => e.unix === expUnix)?.label || ''}${medianIv ? ' · IV auto-set to ' + Math.round(medianIv < 2 ? medianIv * 100 : medianIv) + '%' : ''}`, 'success');
 
   render();
 }
@@ -1124,6 +1204,8 @@ function applyTickerDataLocal(symbol, spot, iv, ivr) {
 }
 
 async function selectTicker(t) {
+  // Reset manual IVR flag - new ticker should auto-compute its own IVR
+  ivRankManuallySet = false;
   // Immediate UI update with hardcoded values
   applyTickerDataLocal(t.sym, t.spot, t.iv, t.ivr ?? 50);
   closeTickerPicker();
@@ -1192,12 +1274,10 @@ function renderCurated(spot, sigma, r) {
     const t = (c.cagr - minC) / (maxC - minC || 1);
     const color = colorFor(t);
     const isBalanced = i === balancedIdx;
-    const isWorst = i === worstIdx;
-    const isTimePick = i === timePickIdx && !isBalanced && !isWorst;
+    const isTimePick = i === timePickIdx && !isBalanced;
     const div = document.createElement('div');
     div.className = 'row'
       + (isBalanced ? ' best' : '')
-      + (isWorst ? ' worst' : '')
       + (isTimePick ? ' timepick' : '');
     div.onclick = () => openEdit(i);
     div.innerHTML = `
@@ -1205,7 +1285,6 @@ function renderCurated(spot, sigma, r) {
         <span>${c.expLabel}</span>
         <span style="font-size:9px;color:#5a6478;font-weight:500;">${c.days}d ${c.isReal ? '· <span style="color:#16a34a;font-weight:700;">REAL</span>' : '· <span style="color:#94a3b8;">EST</span>'}</span>
         ${isBalanced ? (noQualified ? '<span class="marker">★ CLOSEST</span>' : '<span class="marker">★ BALANCED</span>') : ''}
-        ${isWorst ? '<span class="marker">⚠ WORST</span>' : ''}
         ${isTimePick ? '<span class="marker">⏱ TIME</span>' : ''}
       </div>
       <div class="strike">
@@ -1299,14 +1378,15 @@ function renderSweep(spot, sigma, r) {
     const t = (c.cagr - minC) / (maxC - minC || 1);
     const color = colorFor(t);
     const isBalanced = i === balancedIdx;
-    const isWorst = i === worstIdx;
     const div = document.createElement('div');
-    div.className = 'row' + (isBalanced ? ' best' : '') + (isWorst ? ' worst' : '') + (c.isAtm && !isBalanced && !isWorst ? ' atm' : '');
+    div.className = 'row' + (isBalanced ? ' best' : '') + (c.isAtm && !isBalanced ? ' atm' : '');
     div.innerHTML = `
       <div class="strike">
-        <span class="strike-val">${c.K}</span>
+        <div class="strike-line">
+          <span class="strike-val">${c.K}</span>
+          ${isBalanced ? '<span class="badge-pill">★ BAL</span>' : c.isAtm ? '<span class="badge-pill atm">ATM</span>' : ''}
+        </div>
         <span class="prem-val">$${c.premium.toFixed(2)}${c.isReal ? '' : '<span style="color:#94a3b8;font-weight:500;"> est</span>'}</span>
-        ${isBalanced ? '<span class="marker">★ BALANCED</span>' : isWorst ? '<span class="marker">⚠ WORST</span>' : c.isAtm ? '<span class="marker">ATM</span>' : ''}
       </div>
       <div>${fmt(c.bept)}</div>
       <div class="lev-cell">${c.leverage.toFixed(1)}x</div>
@@ -1336,6 +1416,9 @@ function updateIvRankBadge() {
   // Apply heat color to IV (using 80 as "very high" for absolute IV)
   const iv = parseFloat(document.getElementById('iv').value) || 0;
   document.getElementById('iv').style.color = heatColor(iv, 80);
+  // Apply heat color to Target %/yr — green at low, red at 100%
+  const tgt = parseFloat(document.getElementById('expectedGrowth').value) || 0;
+  document.getElementById('expectedGrowth').style.color = heatColor(tgt, 100);
 }
 
 // =============================================================================
@@ -1348,8 +1431,8 @@ function setMode(m) {
   document.getElementById('curatedView').style.display = m === 'curated' ? '' : 'none';
   document.getElementById('sweepView').style.display = m === 'sweep' ? '' : 'none';
   document.getElementById('footNote').textContent = m === 'curated'
-    ? 'Tap any row to edit · BEST and WORST update live'
-    : 'Full chain at one expiration · color-graded by CAGR · ATM marked';
+    ? 'Tap any row to edit · BALANCED = highest leverage that hits your target'
+    : 'Full chain · BALANCED = highest leverage with CAGR under target · ATM marked';
   render();
 }
 
@@ -1633,26 +1716,65 @@ document.getElementById('tickerSearch').addEventListener('input', e => renderTic
 document.getElementById('tickerModal').addEventListener('click', e => {
   if (e.target.id === 'tickerModal') closeTickerPicker();
 });
-// Spot input: 'input' for live math recalc; 'change' (blur/Enter) for strike rescale
+// Generate default LEAPS comparison rows centered around a given spot.
+// ITM-biased since most LEAPS buyers want delta exposure with intrinsic value.
+function regenerateRowsForSpot(spot) {
+  const step = strikeStep(spot);
+  const round = (mult) => {
+    const raw = spot * mult;
+    return Math.max(step, Math.round(raw / step) * step);
+  };
+  // Pull expiration unix values that actually exist
+  const exps = liveData.expirations.length >= 5 ? liveData.expirations : FALLBACK_EXPIRATIONS;
+  return [
+    { expUnix: exps[0].unix,                       strike: round(0.95) },  // 5% ITM, shortest
+    { expUnix: exps[1]?.unix || exps[0].unix,      strike: round(0.90) },  // 10% ITM
+    { expUnix: exps[1]?.unix || exps[0].unix,      strike: round(1.00) },  // ATM
+    { expUnix: exps[1]?.unix || exps[0].unix,      strike: round(1.10) },  // 10% OTM
+    { expUnix: exps[2]?.unix || exps[1]?.unix || exps[0].unix, strike: round(0.85) }, // 15% ITM
+    { expUnix: exps[3]?.unix || exps[2]?.unix || exps[0].unix, strike: round(0.95) }, // 5% ITM, longer
+    { expUnix: exps[3]?.unix || exps[2]?.unix || exps[0].unix, strike: round(1.00) }, // ATM, longer
+    { expUnix: (exps[4] || exps[3] || exps[2] || exps[0]).unix, strike: round(0.85) }, // 15% ITM, longest
+  ];
+}
+
+// Spot input: 'input' for live math recalc; 'change' (blur/Enter) for strike regen
 let lastCommittedSpot = parseFloat(document.getElementById('spot').value) || 450;
 document.getElementById('spot').addEventListener('input', render);
 document.getElementById('spot').addEventListener('change', () => {
   const newSpot = parseFloat(document.getElementById('spot').value);
   if (!newSpot || newSpot <= 0) return;
+  // Always regenerate rows when spot is manually changed - gives a sensible
+  // ITM-biased default around the new spot. Real screenshot data is preserved
+  // in liveData.chains so users won't lose any imported chain.
   if (Math.abs(newSpot - lastCommittedSpot) > 0.5) {
-    const newStep = strikeStep(newSpot);
-    rows = rows.map(r => {
-      const moneyness = r.strike / lastCommittedSpot;
-      const raw = moneyness * newSpot;
-      const rounded = Math.round(raw / newStep) * newStep;
-      return { expUnix: r.expUnix, strike: Math.max(newStep, +rounded.toFixed(2)) };
-    });
+    rows = regenerateRowsForSpot(newSpot);
     render();
   }
   lastCommittedSpot = newSpot;
 });
-document.getElementById('iv').addEventListener('input', render);
-document.getElementById('ivRank').addEventListener('input', render);
+// Track manual IVR override — when user types in IVR field, stop auto-computing from IV
+let ivRankManuallySet = false;
+
+document.getElementById('iv').addEventListener('input', () => {
+  const iv = parseFloat(document.getElementById('iv').value);
+  if (!isNaN(iv) && iv > 0 && !ivRankManuallySet) {
+    const sym = liveData.symbol;
+    document.getElementById('ivRank').value = computeIvRank(iv, sym);
+  }
+  render();
+  if (Object.keys(liveData.chains).length > 0 && liveData.source === 'screenshot') {
+    const hint = document.getElementById('uploadStatus');
+    if (hint && !hint.textContent.includes('IV applies only to')) {
+      hint.textContent = 'IV applies only to estimated rows — screenshot prices are real';
+      hint.className = 'upload-status';
+    }
+  }
+});
+document.getElementById('ivRank').addEventListener('input', () => {
+  ivRankManuallySet = true;
+  render();
+});
 document.getElementById('sweepExp').addEventListener('change', () => {
   const expUnix = parseInt(document.getElementById('sweepExp').value);
   if (expUnix && !liveData.chains[expUnix] && liveData.symbol) {
