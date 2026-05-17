@@ -16,7 +16,7 @@ body {
 .wrap { max-width: 540px; margin: 0 auto; }
 
 /* Controls */
-.controls { display: grid; grid-template-columns: 1.2fr 1fr 0.85fr 1fr; gap: 5px; margin-bottom: 10px; }
+.controls { display: grid; grid-template-columns: 1.1fr 0.85fr 0.7fr 0.85fr 0.85fr; gap: 5px; margin-bottom: 10px; }
 .ctrl {
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.12);
@@ -38,18 +38,75 @@ body {
 .ctrl.green input { color: #22c55e; }
 .ctrl.amber input { color: #fbbf24; }
 .ctrl.magenta input { color: #ec4899; }
+.ctrl.cyan input { color: #22d3ee; }
+.ivr-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ivr-row input { flex: 1; min-width: 0; }
 .ivr-badge {
-  position: absolute;
-  top: 6px; right: 8px;
+  flex: 0 0 auto;
   font-size: 8px;
   font-weight: 800;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   padding: 2px 5px;
   border-radius: 3px;
+  pointer-events: none;
+  font-family: 'Bricolage Grotesque', sans-serif;
 }
 .ivr-badge.cheap { background: rgba(34,197,94,0.2); color: #22c55e; }
 .ivr-badge.fair { background: rgba(251,191,36,0.2); color: #fbbf24; }
 .ivr-badge.pricey { background: rgba(239,68,68,0.2); color: #ef4444; }
+
+/* Screenshot upload */
+.upload-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  color: white;
+  border: 0;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  width: 100%;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 12px rgba(139, 92, 246, 0.25);
+}
+.upload-btn:active { transform: scale(0.98); }
+.upload-btn .ic { font-size: 14px; }
+.upload-btn.loading {
+  background: linear-gradient(135deg, #475569, #64748b);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.upload-btn.success {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+}
+.upload-status {
+  font-size: 11px;
+  color: #94a3b8;
+  text-align: center;
+  margin-top: -4px;
+  margin-bottom: 10px;
+}
+.upload-status.error { color: #ef4444; }
+.upload-status.success { color: #22c55e; }
+.upload-status .src-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  background: rgba(34,197,94,0.15);
+  color: #22c55e;
+  border-radius: 3px;
+  font-weight: 700;
+  font-size: 10px;
+  margin-left: 4px;
+}
 .ticker-display {
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px; font-weight: 700; color: #22d3ee;
@@ -125,7 +182,7 @@ body {
   gap: 4px; padding: 0 8px;
 }
 .curated .thead, .curated .row {
-  grid-template-columns: 80px 60px 1fr 50px 50px 64px;
+  grid-template-columns: 78px 58px 1fr 44px 42px 38px 60px;
 }
 .thead {
   background: #1e40af; color: #fff;
@@ -217,8 +274,8 @@ body {
 
 /* Sweep mode table */
 .sweep .thead, .sweep .row {
-  grid-template-columns: 64px 64px 50px 70px;
-  gap: 4px; padding: 0 8px;
+  grid-template-columns: 56px 56px 38px 38px 60px;
+  gap: 3px; padding: 0 6px;
 }
 .sweep .row {
   height: 34px;
@@ -241,7 +298,7 @@ body {
   background: #f3f7fb;
   padding: 8px 12px;
   border-bottom: 1px solid #e5ebf2;
-  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
 }
 .sweep-pick { display: flex; flex-direction: column; gap: 3px; }
 .sweep-pick label {
@@ -454,10 +511,23 @@ body {
     </div>
     <div class="ctrl magenta">
       <div class="ctrl-label">IV Rank</div>
-      <input id="ivRank" type="number" step="1" min="0" max="100" value="45" />
-      <span class="ivr-badge fair" id="ivrBadge">FAIR</span>
+      <div class="ivr-row">
+        <input id="ivRank" type="number" step="1" min="0" max="100" value="45" />
+        <span class="ivr-badge fair" id="ivrBadge">FAIR</span>
+      </div>
+    </div>
+    <div class="ctrl cyan">
+      <div class="ctrl-label">Target %/yr</div>
+      <input id="expectedGrowth" type="number" step="1" value="10" />
     </div>
   </div>
+
+  <button class="upload-btn" id="uploadBtn" onclick="document.getElementById('screenshotFile').click()">
+    <span class="ic">📷</span>
+    <span id="uploadBtnText">Upload Options Chain Screenshot</span>
+  </button>
+  <input type="file" id="screenshotFile" accept="image/*" style="display:none;" onchange="handleScreenshot(event)" />
+  <div class="upload-status" id="uploadStatus"></div>
 
   <div class="title">CAGR to Breakeven on Top <em>LEAPS</em></div>
 
@@ -485,6 +555,7 @@ body {
         <div class="th">BEPt</div>
         <div class="th">$/Day</div>
         <div class="th">Lev.</div>
+        <div class="th">Δ</div>
         <div class="th right">CAGR Req.</div>
       </div>
       <div id="tbodyC"></div>
@@ -512,15 +583,12 @@ body {
             <option value="0.20">±20%</option>
           </select>
         </div>
-        <div class="sweep-pick">
-          <label>Expected Growth %</label>
-          <input id="expectedGrowth" type="number" step="1" value="10" />
-        </div>
       </div>
       <div class="thead">
         <div class="th">Strike / Cost</div>
         <div class="th">BEPt</div>
         <div class="th">Lev.</div>
+        <div class="th">Δ</div>
         <div class="th right">CAGR</div>
       </div>
       <div class="scroll-body" id="tbodyS"></div>
@@ -638,12 +706,13 @@ const FALLBACK_EXPIRATIONS = [
   { unix: Math.floor(new Date('2028-12-15').getTime() / 1000), label: 'Dec 15, 2028' },
 ];
 
-// Live data state — populated from Yahoo
+// Live data state — populated from Yahoo or screenshot
 let liveData = {
   symbol: 'TSLA',
   expirations: FALLBACK_EXPIRATIONS.slice(),     // [{unix, label}]
   chains: {},                                     // { unix: {calls, puts, fetchedAt} }
   hasRealExpirations: false,                      // true once Yahoo returns
+  source: 'mock',                                 // 'mock' | 'yahoo' | 'screenshot'
 };
 
 // Initial rows seeded with reasonable defaults around TSLA $450 area
@@ -698,6 +767,16 @@ function colorFor(t) {
   if (i >= stops.length-1) return `rgba(${stops[stops.length-1].join(',')},0.55)`;
   const a = stops[i], b = stops[i+1];
   return `rgba(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)},0.55)`;
+}
+function heatColor(value, scale = 100) {
+  // 0 = green (good for buyers), scale = red (bad for buyers)
+  const t = Math.min(1, Math.max(0, value / scale));
+  const stops = [[34,197,94],[132,204,22],[234,179,8],[249,115,22],[239,68,68]];
+  const x = t*(stops.length-1);
+  const i = Math.floor(x), f = x-i;
+  if (i >= stops.length-1) return `rgb(${stops[stops.length-1].join(',')})`;
+  const a = stops[i], b = stops[i+1];
+  return `rgb(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)})`;
 }
 function fmt(n) { return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 function pct(n) { return (n*100).toFixed(2) + '%'; }
@@ -817,20 +896,166 @@ function getPremium(spot, sigma, r, unix, strike, side = 'call') {
   const contract = getRealContract(unix, strike, side);
   if (contract) {
     const mid = (contract.bid + contract.ask) / 2;
-    if (mid > 0.01) return { premium: mid, isReal: true, bid: contract.bid, ask: contract.ask, iv: contract.iv };
-    if (contract.last > 0.01) return { premium: contract.last, isReal: true, bid: contract.bid, ask: contract.ask, iv: contract.iv };
+    const price = mid > 0.01 ? mid : (contract.last > 0.01 ? contract.last : 0);
+    if (price > 0.01) return { premium: price, isReal: true, bid: contract.bid, ask: contract.ask, iv: contract.iv, delta: contract.delta };
   }
   // Fall back to Black-Scholes
   const days = daysUntilUnix(unix);
   const T = days / 365;
   const fn = side === 'call' ? bsCall : null;
-  if (!fn) return { premium: 0, isReal: false };
-  return { premium: fn(spot, strike, T, r, sigma), isReal: false };
+  if (!fn) return { premium: 0, isReal: false, delta: null };
+  // Approximate delta from BS: N(d1) for calls
+  const d1 = (Math.log(spot/strike) + (r + sigma*sigma/2)*T) / (sigma*Math.sqrt(T));
+  const approxDelta = ncdf(d1);
+  return { premium: fn(spot, strike, T, r, sigma), isReal: false, delta: approxDelta };
 }
 
 // =============================================================================
-//  EXPIRATION DROPDOWNS
+//  SCREENSHOT UPLOAD
 // =============================================================================
+
+async function handleScreenshot(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    setUploadStatus('Not an image file', 'error');
+    return;
+  }
+
+  setUploadStatus('Reading image…', 'loading');
+  document.getElementById('uploadBtn').classList.add('loading');
+  document.getElementById('uploadBtnText').textContent = 'Reading image…';
+
+  // Read file as base64
+  const reader = new FileReader();
+  reader.onerror = () => {
+    setUploadStatus('Failed to read file', 'error');
+    document.getElementById('uploadBtn').classList.remove('loading');
+    document.getElementById('uploadBtnText').textContent = 'Upload Options Chain Screenshot';
+  };
+  reader.onload = async () => {
+    const dataUrl = reader.result;
+    setUploadStatus('Analyzing with AI…', 'loading');
+    document.getElementById('uploadBtnText').textContent = 'Analyzing with AI…';
+    try {
+      const res = await fetch('/api/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'HTTP ' + res.status }));
+        throw new Error(err.error || 'Extraction failed');
+      }
+      const data = await res.json();
+      applyScreenshotData(data);
+      document.getElementById('uploadBtn').classList.remove('loading');
+      document.getElementById('uploadBtn').classList.add('success');
+      document.getElementById('uploadBtnText').textContent = '✓ Loaded — Upload Another';
+      setTimeout(() => {
+        document.getElementById('uploadBtn').classList.remove('success');
+        document.getElementById('uploadBtnText').textContent = 'Upload Options Chain Screenshot';
+      }, 4000);
+    } catch (err) {
+      console.error('Extract error:', err);
+      setUploadStatus('Error: ' + err.message, 'error');
+      document.getElementById('uploadBtn').classList.remove('loading');
+      document.getElementById('uploadBtnText').textContent = 'Upload Options Chain Screenshot';
+    }
+    // Reset file input so user can upload same file again
+    event.target.value = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+function setUploadStatus(msg, type = '') {
+  const el = document.getElementById('uploadStatus');
+  el.textContent = msg;
+  el.className = 'upload-status ' + type;
+}
+
+function applyScreenshotData(data) {
+  const { ticker, spot, expiration, strikes } = data;
+  if (!strikes || strikes.length === 0) {
+    setUploadStatus('No strikes found in screenshot', 'error');
+    return;
+  }
+
+  // Update ticker if provided
+  if (ticker && ticker !== 'UNKNOWN') {
+    document.getElementById('tickerDisplay').textContent = ticker;
+    liveData.symbol = ticker;
+  }
+  // Update spot
+  if (spot && spot > 0) {
+    document.getElementById('spot').value = spot.toFixed(2);
+    lastCommittedSpot = spot;
+  }
+
+  // Build expiration entry
+  let expUnix = null;
+  if (expiration) {
+    const expDate = new Date(expiration + 'T16:00:00Z');
+    if (!isNaN(expDate.getTime())) {
+      expUnix = Math.floor(expDate.getTime() / 1000);
+      const label = expDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+      // Add to expirations list if not present
+      if (!liveData.expirations.find(e => e.unix === expUnix)) {
+        liveData.expirations.push({ unix: expUnix, label });
+        liveData.expirations.sort((a, b) => a.unix - b.unix);
+      }
+      populateExpirationDropdowns();
+    }
+  }
+  if (!expUnix) {
+    // No expiration extracted — use longest fallback
+    expUnix = liveData.expirations[liveData.expirations.length - 1].unix;
+  }
+
+  // Build chain data from screenshot strikes
+  const calls = strikes
+    .filter(s => s.call_last != null && s.call_last > 0)
+    .map(s => ({
+      strike: s.strike,
+      bid: s.call_last,    // use last as both for now (screenshot didn't provide bid/ask)
+      ask: s.call_last,
+      last: s.call_last,
+      iv: 0,
+      delta: s.call_delta != null ? Math.abs(s.call_delta) : null,
+      oi: 0,
+      vol: 0,
+    }));
+  const puts = strikes
+    .filter(s => s.put_last != null && s.put_last > 0)
+    .map(s => ({
+      strike: s.strike,
+      bid: s.put_last,
+      ask: s.put_last,
+      last: s.put_last,
+      iv: 0,
+      delta: s.put_delta != null ? Math.abs(s.put_delta) : null,
+      oi: 0,
+      vol: 0,
+    }));
+  liveData.chains[expUnix] = { calls, puts, strikes: strikes.map(s => s.strike), fetchedAt: Date.now() };
+  liveData.source = 'screenshot';
+
+  // Replace rows with the screenshot strikes (call side)
+  rows = calls.map(c => ({ expUnix, strike: c.strike }));
+  // Update sweep mode to this expiration too
+  document.getElementById('sweepExp').value = expUnix;
+
+  // Set live pill to indicate screenshot source
+  const pill = document.getElementById('livePill');
+  pill.textContent = 'SHOT';
+  pill.className = 'live-pill live';
+  pill.title = 'Data extracted from uploaded screenshot';
+
+  setUploadStatus(`✓ Loaded ${strikes.length} strikes for ${ticker || 'ticker'} · ${liveData.expirations.find(e => e.unix === expUnix)?.label || ''}`, 'success');
+
+  render();
+}
+
 
 function populateExpirationDropdowns() {
   const editSel = document.getElementById('editExp');
@@ -892,6 +1117,7 @@ function applyTickerDataLocal(symbol, spot, iv, ivr) {
   });
   document.getElementById('tickerDisplay').textContent = symbol;
   document.getElementById('spot').value = spot.toFixed(2);
+  lastCommittedSpot = spot;
   if (iv !== null && iv !== undefined) document.getElementById('iv').value = iv;
   if (ivr !== null && ivr !== undefined) document.getElementById('ivRank').value = ivr;
 }
@@ -922,33 +1148,54 @@ async function selectTicker(t) {
 
 function renderCurated(spot, sigma, r) {
   document.getElementById('basePxC').textContent = spot.toFixed(2);
+  const expectedGrowth = (parseFloat(document.getElementById('expectedGrowth').value) || 10) / 100;
 
   const computed = rows.map(row => {
     const days = daysUntilUnix(row.expUnix);
-    const { premium, isReal } = getPremium(spot, sigma, r, row.expUnix, row.strike, 'call');
+    const { premium, isReal, delta } = getPremium(spot, sigma, r, row.expUnix, row.strike, 'call');
     const bept = row.strike + premium;
     const cagr = Math.pow(bept/spot, 365/days) - 1;
     const perDay = premium / days;
     const leverage = spot / Math.max(0.01, premium);
-    return { ...row, expLabel: getExpLabel(row.expUnix), days, premium, bept, cagr, perDay, leverage, isReal };
+    return { ...row, expLabel: getExpLabel(row.expUnix), days, premium, bept, cagr, perDay, leverage, isReal, delta };
   });
 
   const cagrs = computed.map(c => c.cagr);
   const minC = Math.min(...cagrs), maxC = Math.max(...cagrs);
-  const bestIdx = cagrs.indexOf(minC), worstIdx = cagrs.indexOf(maxC);
+  const worstIdx = cagrs.indexOf(maxC);
   const perDays = computed.map(c => c.perDay);
   const timePickIdx = perDays.indexOf(Math.min(...perDays));
 
+  // BALANCED: highest leverage among rows where CAGR <= target growth
+  let balancedIdx = -1;
+  let bestLev = -1;
+  computed.forEach((c, i) => {
+    if (c.cagr <= expectedGrowth && c.leverage > bestLev) {
+      bestLev = c.leverage;
+      balancedIdx = i;
+    }
+  });
+  // Track whether anyone qualified; fallback to lowest CAGR if not
+  const noQualified = balancedIdx === -1;
+  if (noQualified) balancedIdx = cagrs.indexOf(minC);
+
   const tbody = document.getElementById('tbodyC');
   tbody.innerHTML = '';
+  if (noQualified) {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'padding:8px 12px;text-align:center;font-size:11px;color:#d97706;background:#fef3c7;border-bottom:1px solid #fcd34d;font-weight:600;';
+    banner.innerHTML = `⚠ No row meets ${(expectedGrowth*100).toFixed(0)}% target — showing lowest-CAGR pick (${(minC*100).toFixed(1)}% needed)`;
+    tbody.appendChild(banner);
+  }
   computed.forEach((c, i) => {
     const t = (c.cagr - minC) / (maxC - minC || 1);
     const color = colorFor(t);
-    const isBest = i === bestIdx, isWorst = i === worstIdx;
-    const isTimePick = i === timePickIdx && !isBest && !isWorst;
+    const isBalanced = i === balancedIdx;
+    const isWorst = i === worstIdx;
+    const isTimePick = i === timePickIdx && !isBalanced && !isWorst;
     const div = document.createElement('div');
     div.className = 'row'
-      + (isBest ? ' best' : '')
+      + (isBalanced ? ' best' : '')
       + (isWorst ? ' worst' : '')
       + (isTimePick ? ' timepick' : '');
     div.onclick = () => openEdit(i);
@@ -956,7 +1203,7 @@ function renderCurated(spot, sigma, r) {
       <div class="date">
         <span>${c.expLabel}</span>
         <span style="font-size:9px;color:#5a6478;font-weight:500;">${c.days}d ${c.isReal ? '· <span style="color:#16a34a;font-weight:700;">REAL</span>' : '· <span style="color:#94a3b8;">EST</span>'}</span>
-        ${isBest ? '<span class="marker">★ BEST</span>' : ''}
+        ${isBalanced ? (noQualified ? '<span class="marker">★ CLOSEST</span>' : '<span class="marker">★ BALANCED</span>') : ''}
         ${isWorst ? '<span class="marker">⚠ WORST</span>' : ''}
         ${isTimePick ? '<span class="marker">⏱ TIME</span>' : ''}
       </div>
@@ -967,6 +1214,7 @@ function renderCurated(spot, sigma, r) {
       <div>${fmt(c.bept)}</div>
       <div class="perday-cell">$${c.perDay.toFixed(2)}</div>
       <div class="lev-cell">${c.leverage.toFixed(1)}x</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${c.delta != null ? '#7c3aed' : '#cbd5e1'};">${c.delta != null ? c.delta.toFixed(2) : '—'}</div>
       <div class="cagr-cell">
         <div class="cagr-bg" style="background:${color};"></div>
         <span class="cagr-val">${pct(c.cagr)}</span>
@@ -1016,11 +1264,11 @@ function renderSweep(spot, sigma, r) {
   }
 
   const computed = strikeList.map(K => {
-    const { premium, isReal } = getPremium(spot, sigma, r, expUnix, K, 'call');
+    const { premium, isReal, delta } = getPremium(spot, sigma, r, expUnix, K, 'call');
     const bept = K + premium;
     const cagr = Math.pow(bept/spot, 365/days) - 1;
     const leverage = spot / Math.max(0.01, premium);
-    return { K, premium, bept, cagr, leverage, isAtm: Math.abs(K - atm) < 0.01, isReal };
+    return { K, premium, bept, cagr, leverage, isAtm: Math.abs(K - atm) < 0.01, isReal, delta };
   });
   const cagrs = computed.map(c => c.cagr);
   const minC = Math.min(...cagrs), maxC = Math.max(...cagrs);
@@ -1061,6 +1309,7 @@ function renderSweep(spot, sigma, r) {
       </div>
       <div>${fmt(c.bept)}</div>
       <div class="lev-cell">${c.leverage.toFixed(1)}x</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${c.delta != null ? '#7c3aed' : '#cbd5e1'};font-size:10.5px;">${c.delta != null ? c.delta.toFixed(2) : '—'}</div>
       <div class="cagr-cell">
         <div class="cagr-bg" style="background:${color};"></div>
         <span class="cagr-val">${pct(c.cagr)}</span>
@@ -1081,6 +1330,11 @@ function updateIvRankBadge() {
   if (v < 30) { badge.textContent = 'CHEAP'; badge.classList.add('cheap'); }
   else if (v < 70) { badge.textContent = 'FAIR'; badge.classList.add('fair'); }
   else { badge.textContent = 'PRICEY'; badge.classList.add('pricey'); }
+  // Apply heat color to IV Rank input
+  document.getElementById('ivRank').style.color = heatColor(v, 100);
+  // Apply heat color to IV (using 80 as "very high" for absolute IV)
+  const iv = parseFloat(document.getElementById('iv').value) || 0;
+  document.getElementById('iv').style.color = heatColor(iv, 80);
 }
 
 // =============================================================================
@@ -1378,7 +1632,24 @@ document.getElementById('tickerSearch').addEventListener('input', e => renderTic
 document.getElementById('tickerModal').addEventListener('click', e => {
   if (e.target.id === 'tickerModal') closeTickerPicker();
 });
+// Spot input: 'input' for live math recalc; 'change' (blur/Enter) for strike rescale
+let lastCommittedSpot = parseFloat(document.getElementById('spot').value) || 450;
 document.getElementById('spot').addEventListener('input', render);
+document.getElementById('spot').addEventListener('change', () => {
+  const newSpot = parseFloat(document.getElementById('spot').value);
+  if (!newSpot || newSpot <= 0) return;
+  if (Math.abs(newSpot - lastCommittedSpot) > 0.5) {
+    const newStep = strikeStep(newSpot);
+    rows = rows.map(r => {
+      const moneyness = r.strike / lastCommittedSpot;
+      const raw = moneyness * newSpot;
+      const rounded = Math.round(raw / newStep) * newStep;
+      return { expUnix: r.expUnix, strike: Math.max(newStep, +rounded.toFixed(2)) };
+    });
+    render();
+  }
+  lastCommittedSpot = newSpot;
+});
 document.getElementById('iv').addEventListener('input', render);
 document.getElementById('ivRank').addEventListener('input', render);
 document.getElementById('sweepExp').addEventListener('change', () => {
