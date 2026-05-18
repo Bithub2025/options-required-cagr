@@ -23,7 +23,7 @@ body {
 .wrap { max-width: 540px; margin: 0 auto; }
 
 /* Controls */
-.controls { display: grid; grid-template-columns: 1.1fr 0.85fr 0.7fr 0.85fr 0.85fr; gap: 5px; margin-bottom: 10px; }
+.controls { display: grid; grid-template-columns: 0.75fr 0.8fr 0.55fr 1.1fr 0.8fr; gap: 5px; margin-bottom: 10px; }
 .ctrl {
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.12);
@@ -41,6 +41,7 @@ body {
   font-size: 13px; font-weight: 700;
   background: transparent; color: #fff;
   border: 0; width: 100%; outline: none; appearance: none; padding: 0;
+  min-width: 0; box-sizing: border-box;
 }
 .ctrl.green input { color: #22c55e; }
 .ctrl.amber input { color: #fbbf24; }
@@ -201,7 +202,7 @@ body {
   gap: 4px; padding: 0 8px;
 }
 .curated .thead, .curated .row {
-  grid-template-columns: 80px 64px 1fr 44px 42px 38px 62px;
+  grid-template-columns: 70px 60px 1fr 42px 36px 36px 64px;
 }
 .thead {
   background: #1e40af; color: #fff;
@@ -294,8 +295,8 @@ body {
 
 /* Sweep mode table */
 .sweep .thead, .sweep .row {
-  grid-template-columns: 70px 54px 38px 38px 60px;
-  gap: 3px; padding: 0 6px;
+  grid-template-columns: 70px 1fr 42px 42px 68px;
+  gap: 4px; padding: 0 8px;
 }
 .sweep .thead { height: 38px; }
 .sweep .row {
@@ -597,7 +598,7 @@ body {
         <div class="th">BEPt</div>
         <div class="th">$/Day</div>
         <div class="th">Lev.</div>
-        <div class="th">Δ</div>
+        <div class="th">IV</div>
         <div class="th right">CAGR Req.</div>
       </div>
       <div id="tbodyC"></div>
@@ -630,7 +631,7 @@ body {
         <div class="th">Strike / Cost</div>
         <div class="th">BEPt</div>
         <div class="th">Lev.</div>
-        <div class="th">Δ</div>
+        <div class="th">IV</div>
         <div class="th right">CAGR</div>
       </div>
       <div class="scroll-body" id="tbodyS"></div>
@@ -981,22 +982,47 @@ function getRealContract(unix, strike, side = 'call') {
   return contract;
 }
 
-// Best estimate of premium for (unix, strike), preferring real data over BS
+// Best estimate of premium for (unix, strike), now always BS so IV slider works.
+// Effective IV per strike = (chain's per-strike IV) × (user IV / chain ATM IV),
+// preserving volatility smile while making IV slider move all prices proportionally.
+// If no chain data for this strike, fall back to user's IV directly.
 function getPremium(spot, sigma, r, unix, strike, side = 'call') {
   const contract = getRealContract(unix, strike, side);
-  if (contract) {
-    const mid = (contract.bid + contract.ask) / 2;
-    const price = mid > 0.01 ? mid : (contract.last > 0.01 ? contract.last : 0);
-    if (price > 0.01) return { premium: price, isReal: true, bid: contract.bid, ask: contract.ask, iv: contract.iv, delta: contract.delta };
-  }
-  // Fall back to Black-Scholes using the user's IV input — so changing IV actually does something
+  const chain = liveData.chains[unix];
   const days = daysUntilUnix(unix);
   const T = days / 365;
+
+  let effectiveSigma = sigma;
+  let hasChainIv = false;
+
+  if (contract && contract.iv > 0 && chain && chain.chainAtmIv && chain.chainAtmIv > 0.05) {
+    // Scale this strike's IV proportionally with user's IV adjustment
+    const scaleFactor = sigma / chain.chainAtmIv;
+    effectiveSigma = contract.iv * scaleFactor;
+    hasChainIv = true;
+  }
+
+  if (effectiveSigma <= 0.01) effectiveSigma = 0.05;
+
   const fn = side === 'call' ? bsCall : null;
-  if (!fn) return { premium: 0, isReal: false, delta: null };
-  const d1 = (Math.log(spot/strike) + (r + sigma*sigma/2)*T) / (sigma*Math.sqrt(T));
-  const approxDelta = ncdf(d1);
-  return { premium: fn(spot, strike, T, r, sigma), isReal: false, delta: approxDelta };
+  if (!fn) return { premium: 0, isReal: false, delta: null, iv: effectiveSigma };
+
+  // Compute delta — use real if available, else BS-derived
+  let delta;
+  if (contract && contract.delta != null) {
+    delta = contract.delta;
+  } else {
+    const d1 = (Math.log(spot/strike) + (r + effectiveSigma*effectiveSigma/2)*T) / (effectiveSigma*Math.sqrt(T));
+    delta = ncdf(d1);
+  }
+
+  const premium = fn(spot, strike, T, r, effectiveSigma);
+  return {
+    premium,
+    isReal: hasChainIv,  // Has chain IV (per-strike smile data preserved)
+    delta,
+    iv: effectiveSigma,  // Per-strike IV used in calc, for display
+  };
 }
 
 // =============================================================================
@@ -1084,21 +1110,26 @@ function applyScreenshotData(data) {
     lastCommittedSpot = spot;
   }
 
-  // Compute median IV from screenshot (use call IVs near ATM if possible)
-  const callIvs = strikes
-    .filter(s => s.call_iv != null && s.call_iv > 0)
-    .map(s => s.call_iv);
-  let medianIv = null;
-  if (callIvs.length > 0) {
-    const sorted = [...callIvs].sort((a, b) => a - b);
-    medianIv = sorted[Math.floor(sorted.length / 2)];
-    // Convert to percentage (if it came back as 0.4768, that's 47.68%)
-    const ivPct = medianIv < 2 ? medianIv * 100 : medianIv;
-    document.getElementById('iv').value = Math.round(ivPct);
-    // Auto-compute IV Rank from this IV
-    const sym = ticker && ticker !== 'UNKNOWN' ? ticker : liveData.symbol;
-    document.getElementById('ivRank').value = computeIvRank(ivPct, sym);
+  // Find ATM IV from screenshot — most useful single IV for the top field
+  let chainAtmIv = null;
+  if (strikes.length > 0 && spot) {
+    // Sort strikes by distance from spot
+    const byDistance = strikes
+      .filter(s => s.call_iv != null && s.call_iv > 0)
+      .sort((a, b) => Math.abs(a.strike - spot) - Math.abs(b.strike - spot));
+    if (byDistance.length > 0) {
+      chainAtmIv = byDistance[0].call_iv;
+      // Convert to percentage (if it came back as 0.4768, that's 47.68%)
+      const ivPct = chainAtmIv < 2 ? chainAtmIv * 100 : chainAtmIv;
+      document.getElementById('iv').value = Math.round(ivPct);
+      // Auto-compute IV Rank from this IV
+      const sym = ticker && ticker !== 'UNKNOWN' ? ticker : liveData.symbol;
+      document.getElementById('ivRank').value = computeIvRank(ivPct, sym);
+      // Store chainAtmIv as decimal for scaling later
+      chainAtmIv = chainAtmIv < 2 ? chainAtmIv : chainAtmIv / 100;
+    }
   }
+  let medianIv = chainAtmIv; // backwards compat for status message
 
   // Build expiration entry
   let expUnix = null;
@@ -1145,7 +1176,7 @@ function applyScreenshotData(data) {
       oi: 0,
       vol: 0,
     }));
-  liveData.chains[expUnix] = { calls, puts, strikes: strikes.map(s => s.strike), fetchedAt: Date.now() };
+  liveData.chains[expUnix] = { calls, puts, strikes: strikes.map(s => s.strike), chainAtmIv, fetchedAt: Date.now() };
   liveData.source = 'screenshot';
 
   // Replace rows with the screenshot strikes (call side)
@@ -1262,12 +1293,12 @@ function renderCurated(spot, sigma, r) {
 
   const computed = rows.map(row => {
     const days = daysUntilUnix(row.expUnix);
-    const { premium, isReal, delta } = getPremium(spot, sigma, r, row.expUnix, row.strike, 'call');
+    const { premium, isReal, delta, iv } = getPremium(spot, sigma, r, row.expUnix, row.strike, 'call');
     const bept = row.strike + premium;
     const cagr = Math.pow(bept/spot, 365/days) - 1;
     const perDay = premium / days;
     const leverage = spot / Math.max(0.01, premium);
-    return { ...row, expLabel: getExpLabel(row.expUnix), days, premium, bept, cagr, perDay, leverage, isReal, delta };
+    return { ...row, expLabel: getExpLabel(row.expUnix), days, premium, bept, cagr, perDay, leverage, isReal, delta, iv };
   });
 
   const cagrs = computed.map(c => c.cagr);
@@ -1322,7 +1353,7 @@ function renderCurated(spot, sigma, r) {
       <div>${fmt(c.bept)}</div>
       <div class="perday-cell">$${c.perDay.toFixed(2)}</div>
       <div class="lev-cell">${c.leverage.toFixed(1)}x</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${c.delta != null ? '#7c3aed' : '#cbd5e1'};">${c.delta != null ? c.delta.toFixed(2) : '—'}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${heatColor((c.iv * 100), 100)};font-size:10.5px;">${(c.iv * 100).toFixed(0)}%</div>
       <div class="cagr-cell">
         <div class="cagr-bg" style="background:${color};"></div>
         <span class="cagr-val">${pct(c.cagr)}</span>
@@ -1372,11 +1403,11 @@ function renderSweep(spot, sigma, r) {
   }
 
   const computed = strikeList.map(K => {
-    const { premium, isReal, delta } = getPremium(spot, sigma, r, expUnix, K, 'call');
+    const { premium, isReal, delta, iv } = getPremium(spot, sigma, r, expUnix, K, 'call');
     const bept = K + premium;
     const cagr = Math.pow(bept/spot, 365/days) - 1;
     const leverage = spot / Math.max(0.01, premium);
-    return { K, premium, bept, cagr, leverage, isAtm: Math.abs(K - atm) < 0.01, isReal, delta };
+    return { K, premium, bept, cagr, leverage, isAtm: Math.abs(K - atm) < 0.01, isReal, delta, iv };
   });
   const cagrs = computed.map(c => c.cagr);
   const minC = Math.min(...cagrs), maxC = Math.max(...cagrs);
@@ -1419,7 +1450,7 @@ function renderSweep(spot, sigma, r) {
       </div>
       <div>${fmt(c.bept)}</div>
       <div class="lev-cell">${c.leverage.toFixed(1)}x</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${c.delta != null ? '#7c3aed' : '#cbd5e1'};font-size:10.5px;">${c.delta != null ? c.delta.toFixed(2) : '—'}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${heatColor((c.iv * 100), 100)};font-size:10px;">${(c.iv * 100).toFixed(0)}%</div>
       <div class="cagr-cell">
         <div class="cagr-bg" style="background:${color};"></div>
         <span class="cagr-val">${pct(c.cagr)}</span>
@@ -1824,13 +1855,6 @@ document.getElementById('iv').addEventListener('input', () => {
     document.getElementById('ivRank').value = computeIvRank(iv, sym);
   }
   render();
-  if (Object.keys(liveData.chains).length > 0 && liveData.source === 'screenshot') {
-    const hint = document.getElementById('uploadStatus');
-    if (hint && !hint.textContent.includes('IV applies only to')) {
-      hint.textContent = 'IV applies only to estimated rows — screenshot prices are real';
-      hint.className = 'upload-status';
-    }
-  }
 });
 document.getElementById('ivRank').addEventListener('input', () => {
   ivRankManuallySet = true;
