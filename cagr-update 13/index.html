@@ -1,0 +1,2439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAGR to Breakeven on Top LEAPS</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CAGR">
+<meta name="theme-color" content="#080A10">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  background: #000; color: #fff;
+  min-height: 100vh; padding: 12px 8px;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 540px; margin: 0 auto; }
+
+/* Controls */
+.controls { display: grid; grid-template-columns: 0.75fr 0.8fr 0.55fr 1.1fr 0.8fr; gap: 5px; margin-bottom: 10px; }
+.ctrl {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 7px 9px;
+  cursor: pointer;
+  position: relative;
+}
+.ctrl-label {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em;
+  color: #8a92a5; margin-bottom: 2px; font-weight: 600;
+}
+.ctrl input {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; font-weight: 700;
+  background: transparent; color: #fff;
+  border: 0; width: 100%; outline: none; appearance: none; padding: 0;
+  min-width: 0; box-sizing: border-box;
+}
+.ctrl.green input { color: #22c55e; }
+.ctrl.amber input { color: #fbbf24; }
+.ctrl.magenta input { color: #ec4899; }
+.ctrl.cyan input { color: #22d3ee; }
+.ivr-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ivr-row input { flex: 1; min-width: 0; }
+.ivr-badge {
+  flex: 0 0 auto;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 2px 5px;
+  border-radius: 3px;
+  pointer-events: none;
+  font-family: 'Bricolage Grotesque', sans-serif;
+}
+.ivr-badge.cheap { background: rgba(34,197,94,0.2); color: #22c55e; }
+.ivr-badge.fair { background: rgba(251,191,36,0.2); color: #fbbf24; }
+.ivr-badge.pricey { background: rgba(239,68,68,0.2); color: #ef4444; }
+
+/* Screenshot upload — sleek dark glass */
+.upload-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 11px 16px;
+  background: rgba(34, 211, 238, 0.06);
+  color: #22d3ee;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  width: 100%;
+  margin-bottom: 10px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.upload-btn:hover { background: rgba(34, 211, 238, 0.12); border-color: rgba(34, 211, 238, 0.6); }
+.upload-btn:active { transform: scale(0.99); }
+.upload-btn .ic {
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.upload-btn.loading {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.upload-btn.success {
+  background: rgba(34, 197, 94, 0.10);
+  border-color: rgba(34, 197, 94, 0.5);
+  color: #22c55e;
+}
+.upload-status {
+  font-size: 10.5px;
+  color: #6b7280;
+  text-align: center;
+  margin-top: -4px;
+  margin-bottom: 10px;
+  letter-spacing: 0.02em;
+}
+.upload-status.error { color: #ef4444; }
+.upload-status.success { color: #22c55e; }
+.upload-status .src-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  background: rgba(34,197,94,0.15);
+  color: #22c55e;
+  border-radius: 3px;
+  font-weight: 700;
+  font-size: 10px;
+  margin-left: 4px;
+}
+.ticker-display {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; font-weight: 700; color: #22d3ee;
+  display: flex; align-items: center; gap: 6px;
+}
+.ticker-display::after { content: '▾'; color: #8a92a5; font-size: 9px; }
+.live-pill {
+  position: absolute;
+  bottom: 4px; right: 6px;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  pointer-events: none;
+  font-family: 'Bricolage Grotesque', sans-serif;
+}
+.live-pill.live { background: rgba(34,197,94,0.2); color: #22c55e; }
+.live-pill.mock { background: rgba(251,191,36,0.2); color: #fbbf24; }
+.live-pill.loading {
+  background: rgba(34,211,238,0.2); color: #22d3ee;
+  animation: pulse 1s ease-in-out infinite;
+}
+.live-pill.error { background: rgba(239,68,68,0.2); color: #ef4444; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Title */
+.title {
+  text-align: center; font-size: 19px; font-weight: 800;
+  letter-spacing: -0.01em; line-height: 1.15;
+  margin: 4px 0 10px;
+  color: #fbbf24;
+  text-shadow: 0 2px 8px rgba(251,191,36,0.2);
+}
+.title em { font-style: normal; color: #22d3ee; }
+
+/* Tabs */
+.tabs {
+  display: flex; gap: 3px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 10px;
+}
+.tab {
+  flex: 1; background: transparent; border: 0;
+  color: #8a92a5; font-family: inherit;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
+  padding: 7px 4px; border-radius: 8px; cursor: pointer;
+  transition: all 0.15s;
+  min-width: 0;
+}
+.tab.on { background: #22d3ee; color: #000; }
+.tab.on.sell { background: #ec4899; color: #fff; }
+.tab .hint { display: block; font-size: 8px; font-weight: 500; opacity: 0.7; margin-top: 1px; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Card */
+.card {
+  background: #fff; border-radius: 10px; overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+.card-title {
+  padding: 10px 12px 8px; font-size: 13px; font-weight: 700; color: #1a2230;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.card-title .sub { font-weight: 500; color: #5a6478; font-size: 11px; }
+
+/* Curated table */
+.thead, .row {
+  display: grid;
+  gap: 4px; padding: 0 8px;
+}
+.curated .thead, .curated .row {
+  grid-template-columns: 70px 60px 1fr 42px 36px 36px 64px;
+}
+.thead {
+  background: #1e40af; color: #fff;
+  font-size: 10px; font-weight: 700;
+  padding: 9px 8px;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.15);
+}
+.thead .th { text-align: center; line-height: 1.15; }
+.thead .th.left { text-align: left; padding-left: 4px; }
+.thead .th.right { text-align: right; padding-right: 4px; }
+
+.row {
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px; font-weight: 500; color: #1a2230;
+  height: 54px; border-bottom: 1px solid #e5ebf2;
+  position: relative; cursor: pointer;
+  transition: background 0.12s;
+}
+.row:nth-child(odd) { background: #f3f7fb; }
+.row:active { background: #d6e6f5 !important; }
+.row > div { text-align: center; }
+.row .date {
+  text-align: left; padding-left: 4px;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 600; font-size: 10.5px;
+  display: flex; flex-direction: column;
+  justify-content: center; line-height: 1.15;
+}
+.row .strike {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  line-height: 1.15; gap: 1px;
+}
+.row .strike-val { font-weight: 700; font-size: 13px; color: #1a2230; }
+.row .prem-val { font-weight: 600; font-size: 10px; color: #16a34a; }
+.row .pct-val { font-weight: 600; font-size: 9.5px; color: #7c3aed; letter-spacing: 0.02em; }
+.row .cagr-cell {
+  text-align: right; padding-right: 8px;
+  font-weight: 700; font-size: 12px;
+  height: 100%;
+  display: flex; align-items: center; justify-content: flex-end;
+  position: relative;
+}
+.row .cagr-bg { position: absolute; inset: 3px 0; border-radius: 4px; z-index: 0; }
+.row .cagr-val { position: relative; z-index: 1; }
+
+.row.best {
+  background: rgba(34,197,94,0.10) !important;
+  box-shadow: inset 4px 0 0 #22c55e;
+}
+.row.worst {
+  background: rgba(245,158,11,0.10) !important;
+  box-shadow: inset 4px 0 0 #f59e0b;
+}
+.row.atm {
+  box-shadow: inset 4px 0 0 #fbbf24;
+}
+.row .marker {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 8.5px; font-weight: 800; letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+.row.best .marker { color: #16a34a; }
+.row.worst .marker { color: #d97706; }
+.row.atm .marker { color: #d97706; }
+.row.timepick { box-shadow: inset 4px 0 0 #22d3ee; }
+.row.timepick .marker { color: #0891b2; }
+.perday-cell {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: #0891b2;
+  font-size: 11px;
+}
+
+@keyframes rowFlash {
+  0% { background: rgba(34,211,238,0.4) !important; }
+  100% { background: transparent; }
+}
+.row.just-updated { animation: rowFlash 0.8s ease-out; }
+
+.add-btn {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; width: 100%; padding: 12px;
+  background: #f3f7fb; color: #1a2230;
+  border: 0; border-top: 1px dashed #c5cfdc;
+  cursor: pointer; font-family: inherit;
+  font-size: 13px; font-weight: 600;
+}
+
+/* Sweep mode table */
+.sweep .thead, .sweep .row {
+  grid-template-columns: 70px 1fr 42px 42px 68px;
+  gap: 4px; padding: 0 8px;
+}
+.sweep .thead { height: 38px; }
+.sweep .row {
+  height: 48px;
+  font-size: 11px;
+  align-items: center;
+}
+.sweep .row .strike { gap: 0; }
+.sweep .row .strike-val { font-size: 12px; }
+.sweep .row .prem-val { font-size: 9.5px; }
+.sweep .row .pct-val { font-size: 8.5px; color: #7c3aed; font-weight: 600; }
+.sweep .row .strike-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.sweep .row .badge-pill {
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: #16a34a;
+  color: #fff;
+  white-space: nowrap;
+}
+.sweep .row .badge-pill.bad { background: #d97706; }
+.sweep .row .badge-pill.atm { background: #fbbf24; color: #1a1a1a; }
+.sweep .scroll-body {
+  max-height: 60vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Sell mode overrides — pink theme for SAFEST badges, inverts on top of buy grids */
+.sell-mode .thead {
+  background: #be185d;
+}
+.sell-mode .add-btn {
+  background: #be185d;
+  color: #fff;
+}
+.sell-mode .add-btn:active {
+  background: #9d174d;
+}
+/* Sell Picks columns: Exp / Strike+Prem / BEPt / P(keep) / Yield / IV / CAGR */
+.sell-mode.curated .thead, .sell-mode.curated .row {
+  grid-template-columns: 68px 58px 1fr 42px 42px 36px 64px;
+}
+/* Sell Sweep: Strike+Prem / BEPt / P(keep) / Yield / IV / CAGR */
+.sell-mode.sweep .thead, .sell-mode.sweep .row {
+  grid-template-columns: 66px 1fr 40px 40px 38px 66px;
+  gap: 3px; padding: 0 6px;
+}
+.sell-mode.sweep .thead { height: 38px; }
+.sell-mode.sweep .row {
+  height: 48px;
+  font-size: 11px;
+  align-items: center;
+}
+.sell-mode.sweep .row .strike-line {
+  display: flex; align-items: center; gap: 4px;
+}
+.sell-mode.sweep .row .strike-val { font-size: 12px; }
+.sell-mode.sweep .row .prem-val { font-size: 9.5px; color: #16a34a; }
+.sell-mode.sweep .row .pct-val { font-size: 8.5px; color: #be185d; font-weight: 600; }
+.sell-mode.sweep .row .badge-pill {
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: #be185d;
+  color: #fff;
+  white-space: nowrap;
+}
+.sell-mode.sweep .row .badge-pill.atm { background: #fbbf24; color: #1a1a1a; }
+.sell-mode.sweep .scroll-body {
+  max-height: 60vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+/* SAFEST highlight in row (replaces .best for sell) */
+.sell-mode .row.safest {
+  background: linear-gradient(90deg, rgba(190, 24, 93, 0.10), rgba(190, 24, 93, 0.02)) !important;
+  border-left: 4px solid #be185d;
+}
+.sell-mode .row .marker.safest-marker {
+  color: #be185d;
+}
+.yield-cell {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+}
+.lev-cell {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700; color: #8b5cf6;
+}
+
+/* Sweep controls */
+.sweep-controls {
+  background: #f3f7fb;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e5ebf2;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.sweep-pick { display: flex; flex-direction: column; gap: 3px; }
+.sweep-pick label {
+  font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: #5a6478; font-weight: 700;
+}
+.sweep-pick select, .sweep-pick input {
+  background: #fff; border: 1px solid #d0d7e0;
+  border-radius: 6px; padding: 6px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-weight: 700; color: #1a2230;
+  appearance: none; outline: none; width: 100%;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%231a2230' d='M0 0l5 6 5-6z'/></svg>");
+  background-repeat: no-repeat; background-position: right 8px center;
+}
+.sweep-pick input { background-image: none; padding-right: 8px; color: #16a34a; }
+
+/* Modal */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: flex-end; justify-content: center;
+  z-index: 50;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: #14171f; border: 1px solid #2a3040;
+  border-radius: 16px 16px 0 0;
+  width: 100%; max-width: 540px;
+  padding: 18px; max-height: 90vh;
+  display: flex; flex-direction: column;
+  animation: slideUp 0.22s ease-out;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal-title {
+  font-size: 16px; font-weight: 700;
+  margin-bottom: 12px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px; font-weight: 600;
+  margin-top: -8px;
+  margin-bottom: 14px;
+  display: flex; gap: 8px; align-items: center;
+}
+.modal-subtitle .sub-ticker { color: #22d3ee; }
+.modal-subtitle .sub-spot { color: #22c55e; }
+.modal-subtitle .sub-sep { color: #5a6478; }
+.modal-close {
+  background: rgba(255,255,255,0.08); border: 0; color: #fff;
+  width: 28px; height: 28px; border-radius: 50%;
+  font-size: 14px; cursor: pointer;
+}
+.field { margin-bottom: 12px; }
+.field-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: #8a92a5; margin-bottom: 6px; font-weight: 600;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.field-hint { color: #fbbf24; text-transform: none; letter-spacing: 0; font-size: 11px; font-weight: 600; }
+.field select {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 11px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px; font-weight: 600; color: #22d3ee;
+  outline: none; appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%2322d3ee' d='M0 0l5 6 5-6z'/></svg>");
+  background-repeat: no-repeat; background-position: right 14px center;
+}
+
+.wheel-container {
+  position: relative; height: 180px;
+  overflow: hidden; border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.wheel-scroll {
+  height: 100%; overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.wheel-scroll::-webkit-scrollbar { display: none; }
+.wheel-pad { height: 70px; }
+.wheel-item {
+  height: 40px; scroll-snap-align: center;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px; font-weight: 600;
+  color: rgba(255,255,255,0.3);
+  transition: color 0.15s, font-size 0.15s, font-weight 0.15s;
+  user-select: none;
+}
+.wheel-item.near { color: rgba(255,255,255,0.55); font-size: 19px; }
+.wheel-item.active { color: #22d3ee; font-size: 26px; font-weight: 800; }
+.wheel-band {
+  position: absolute; top: 70px; height: 40px;
+  left: 14px; right: 14px;
+  border-top: 1.5px solid rgba(34,211,238,0.5);
+  border-bottom: 1.5px solid rgba(34,211,238,0.5);
+  background: rgba(34,211,238,0.06);
+  pointer-events: none; border-radius: 4px;
+}
+
+.modal-actions { display: flex; gap: 8px; margin-top: 14px; }
+.btn {
+  flex: 1; padding: 13px; border: 0; border-radius: 10px;
+  font-family: inherit; font-size: 14px; font-weight: 700;
+  cursor: pointer;
+}
+.btn-save { background: #22c55e; color: #000; }
+.btn-delete { background: rgba(239,68,68,0.15); color: #ef4444; flex: 0 0 auto; padding: 13px 18px; border: 1px solid rgba(239,68,68,0.3); }
+
+/* Live preview inside modal */
+.preview {
+  background: rgba(34,211,238,0.06);
+  border: 1px solid rgba(34,211,238,0.25);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-top: 14px;
+}
+.preview-label {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em;
+  color: #67e8f9; font-weight: 700; margin-bottom: 8px;
+}
+.preview-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+}
+.preview-cell {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.preview-cell-label {
+  font-size: 10px; color: #8a92a5; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.preview-cell-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px; font-weight: 700;
+}
+.preview-cell.cost .preview-cell-value { color: #22c55e; }
+.preview-cell.bept .preview-cell-value { color: #fff; }
+.preview-cell.move .preview-cell-value { color: #fbbf24; }
+.preview-cell.cagr .preview-cell-value { color: #22d3ee; font-size: 18px; }
+
+@keyframes flashUpdate {
+  0% { background: rgba(34,211,238,0.3); }
+  100% { background: transparent; }
+}
+.preview-cell-value.flash {
+  animation: flashUpdate 0.5s ease-out;
+  border-radius: 4px;
+  padding: 0 4px;
+  margin: 0 -4px;
+}
+
+.ticker-search {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-family: inherit; font-size: 15px; color: #fff;
+  outline: none; margin-bottom: 10px;
+}
+.ticker-search::placeholder { color: #6a7286; }
+.ticker-list { flex: 1; overflow-y: auto; margin: 0 -18px -18px; padding: 0 18px 12px; -webkit-overflow-scrolling: touch; }
+.ticker-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  cursor: pointer;
+}
+.ticker-item:active { background: rgba(255,255,255,0.05); }
+.ticker-info { display: flex; flex-direction: column; gap: 2px; }
+.ticker-sym { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; color: #22d3ee; }
+.ticker-name { font-size: 11px; color: #c8d0de; }
+.ticker-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.ticker-spot { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #22c55e; font-weight: 600; }
+.ticker-iv { font-size: 11px; color: #fbbf24; font-weight: 600; }
+.ticker-empty { padding: 24px; text-align: center; color: #6a7286; font-size: 13px; }
+
+.footer-note {
+  margin-top: 10px; text-align: center;
+  font-size: 10.5px; color: #6a7286; font-style: italic;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="controls">
+    <div class="ctrl" onclick="openTickerPicker()">
+      <div class="ctrl-label">Ticker</div>
+      <div class="ticker-display" id="tickerDisplay">TSLA</div>
+      <span class="live-pill mock" id="livePill">READY</span>
+    </div>
+    <div class="ctrl green">
+      <div class="ctrl-label">Spot $</div>
+      <input id="spot" type="number" step="0.01" value="450.00" />
+    </div>
+    <div class="ctrl amber">
+      <div class="ctrl-label">IV %</div>
+      <input id="iv" type="number" step="1" value="55" />
+    </div>
+    <div class="ctrl magenta">
+      <div class="ctrl-label">IV Rank</div>
+      <div class="ivr-row">
+        <input id="ivRank" type="number" step="1" min="0" max="100" value="45" />
+        <span class="ivr-badge fair" id="ivrBadge">FAIR</span>
+      </div>
+    </div>
+    <div class="ctrl cyan">
+      <div class="ctrl-label">Target %/yr</div>
+      <input id="expectedGrowth" type="number" step="1" value="10" />
+    </div>
+  </div>
+
+  <button class="upload-btn" id="uploadBtn" onclick="document.getElementById('screenshotFile').click()">
+    <span class="ic">📷</span>
+    <span id="uploadBtnText">Import Chain from Screenshot</span>
+  </button>
+  <input type="file" id="screenshotFile" accept="image/*" style="display:none;" onchange="handleScreenshot(event)" />
+  <div class="upload-status" id="uploadStatus"></div>
+
+  <div class="title">CAGR to Breakeven on Top <em>LEAPS</em></div>
+
+  <div class="tabs">
+    <button class="tab on" data-mode="curated" onclick="setMode('curated')">
+      Picks
+      <span class="hint">buy</span>
+    </button>
+    <button class="tab" data-mode="sweep" onclick="setMode('sweep')">
+      Sweep
+      <span class="hint">buy chain</span>
+    </button>
+    <button class="tab" data-mode="sellPicks" onclick="setMode('sellPicks')">
+      Sell Picks
+      <span class="hint">sell</span>
+    </button>
+    <button class="tab" data-mode="sellSweep" onclick="setMode('sellSweep')">
+      Sell Sweep
+      <span class="hint">sell chain</span>
+    </button>
+  </div>
+
+  <!-- CURATED MODE -->
+  <div id="curatedView" class="curated">
+    <div class="card">
+      <div class="card-title">
+        <span>Your Comparison Set</span>
+        <span class="sub">$<span id="basePxC">450.00</span> base</span>
+      </div>
+      <div class="thead">
+        <div class="th left">Exp. Date</div>
+        <div class="th">Strike<br/><span style="font-weight:500;opacity:0.85;">Cost · %</span></div>
+        <div class="th">BEPt</div>
+        <div class="th">$/Day</div>
+        <div class="th">Lev.</div>
+        <div class="th">IV</div>
+        <div class="th right">CAGR Req.</div>
+      </div>
+      <div id="tbodyC"></div>
+      <button class="add-btn" onclick="openEdit(-1)">＋ Add LEAP</button>
+    </div>
+  </div>
+
+  <!-- SWEEP MODE -->
+  <div id="sweepView" class="sweep" style="display:none;">
+    <div class="card">
+      <div class="card-title">
+        <span>Full Strike Chain</span>
+        <span class="sub">$<span id="basePxS">450.00</span> base</span>
+      </div>
+      <div class="sweep-controls">
+        <div class="sweep-pick">
+          <label>Expiration</label>
+          <select id="sweepExp"></select>
+        </div>
+        <div class="sweep-pick">
+          <label>Range ± ATM</label>
+          <select id="sweepRange">
+            <option value="0.5">±50%</option>
+            <option value="0.35" selected>±35%</option>
+            <option value="0.20">±20%</option>
+          </select>
+        </div>
+      </div>
+      <div class="thead">
+        <div class="th">Strike / Cost</div>
+        <div class="th">BEPt</div>
+        <div class="th">Lev.</div>
+        <div class="th">IV</div>
+        <div class="th right">CAGR</div>
+      </div>
+      <div class="scroll-body" id="tbodyS"></div>
+    </div>
+  </div>
+
+  <!-- SELL PICKS MODE -->
+  <div id="sellPicksView" class="curated sell-mode" style="display:none;">
+    <div class="card">
+      <div class="card-title">
+        <span>Sell Comparison Set</span>
+        <span class="sub">$<span id="basePxSP">450.00</span> base</span>
+      </div>
+      <div class="thead sell-head">
+        <div class="th left">Exp. Date</div>
+        <div class="th">Strike<br/><span style="font-weight:500;opacity:0.85;">Prem · %</span></div>
+        <div class="th">BEPt</div>
+        <div class="th">P(keep)</div>
+        <div class="th">Yield</div>
+        <div class="th">IV</div>
+        <div class="th right">CAGR-Lose</div>
+      </div>
+      <div id="tbodySP"></div>
+      <button class="add-btn sell-add" onclick="openSellEdit(-1)">＋ Add Call</button>
+    </div>
+  </div>
+
+  <!-- SELL SWEEP MODE -->
+  <div id="sellSweepView" class="sweep sell-mode" style="display:none;">
+    <div class="card">
+      <div class="card-title">
+        <span>Sell Strike Chain</span>
+        <span class="sub">$<span id="basePxSS">450.00</span> base</span>
+      </div>
+      <div class="sweep-controls">
+        <div class="sweep-pick">
+          <label>Expiration</label>
+          <select id="sellSweepExp"></select>
+        </div>
+        <div class="sweep-pick">
+          <label>Range ± ATM</label>
+          <select id="sellSweepRange">
+            <option value="0.5">±50%</option>
+            <option value="0.35" selected>±35%</option>
+            <option value="0.20">±20%</option>
+          </select>
+        </div>
+      </div>
+      <div class="thead sell-head">
+        <div class="th">Strike / Prem.</div>
+        <div class="th">BEPt</div>
+        <div class="th">P(keep)</div>
+        <div class="th">Yield</div>
+        <div class="th">IV</div>
+        <div class="th right">CAGR-Lose</div>
+      </div>
+      <div class="scroll-body" id="tbodySS"></div>
+    </div>
+  </div>
+
+  <div class="footer-note" id="footNote">Tap a row to edit · BALANCED = highest leverage that hits your target</div>
+
+</div>
+
+<!-- Edit LEAP Modal -->
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="modalTitle">Edit LEAP</span>
+      <button class="modal-close" onclick="closeEdit()">✕</button>
+    </div>
+    <div class="modal-subtitle">
+      <span class="sub-ticker" id="subTicker">TSLA</span>
+      <span class="sub-sep">·</span>
+      <span class="sub-spot" id="subSpot">$450.00</span>
+      <span class="sub-sep">spot</span>
+    </div>
+    <div class="field">
+      <div class="field-label">Expiration</div>
+      <select id="editExp"></select>
+    </div>
+    <div class="field">
+      <div class="field-label">
+        <span>Strike Price</span>
+        <span class="field-hint">step: $<span id="stepHint">5</span></span>
+      </div>
+      <div class="wheel-container">
+        <div class="wheel-band"></div>
+        <div class="wheel-scroll" id="strikeWheel">
+          <div class="wheel-pad"></div>
+          <div class="wheel-pad"></div>
+        </div>
+      </div>
+    </div>
+    <div class="preview">
+      <div class="preview-label">Live preview · updates as you change strike or date</div>
+      <div class="preview-grid">
+        <div class="preview-cell cost">
+          <span class="preview-cell-label">Cost</span>
+          <span class="preview-cell-value" id="prevCost">—</span>
+        </div>
+        <div class="preview-cell bept">
+          <span class="preview-cell-label">Breakeven</span>
+          <span class="preview-cell-value" id="prevBept">—</span>
+        </div>
+        <div class="preview-cell move">
+          <span class="preview-cell-label">$ to BE</span>
+          <span class="preview-cell-value" id="prevMove">—</span>
+        </div>
+        <div class="preview-cell cagr">
+          <span class="preview-cell-label">CAGR Req.</span>
+          <span class="preview-cell-value" id="prevCagr">—</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-delete" id="btnDelete" onclick="deleteRow()">🗑</button>
+      <button class="btn btn-save" onclick="saveEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ticker Picker -->
+<div class="modal-backdrop" id="tickerModal">
+  <div class="modal">
+    <div class="modal-title">
+      <span>Select Stock</span>
+      <button class="modal-close" onclick="closeTickerPicker()">✕</button>
+    </div>
+    <input class="ticker-search" id="tickerSearch" placeholder="Search ticker or company..." autocomplete="off" />
+    <div class="ticker-list" id="tickerList"></div>
+  </div>
+</div>
+
+<script>
+// =============================================================================
+//  STATE
+// =============================================================================
+
+const TICKERS = [
+  { sym: 'TSLA', name: 'Tesla, Inc.',          spot: 450.00, iv: 55, ivr: 45, ivMin: 30, ivMax: 90 },
+  { sym: 'MSTR', name: 'Strategy Inc.',        spot: 195.71, iv: 70, ivr: 60, ivMin: 40, ivMax: 130 },
+  { sym: 'NVDA', name: 'NVIDIA Corp.',         spot: 175.00, iv: 50, ivr: 30, ivMin: 25, ivMax: 75 },
+  { sym: 'AAPL', name: 'Apple Inc.',           spot: 225.00, iv: 25, ivr: 35, ivMin: 15, ivMax: 50 },
+  { sym: 'META', name: 'Meta Platforms',       spot: 575.00, iv: 35, ivr: 40, ivMin: 20, ivMax: 60 },
+  { sym: 'GOOGL',name: 'Alphabet Inc.',        spot: 175.00, iv: 30, ivr: 35, ivMin: 18, ivMax: 55 },
+  { sym: 'AMZN', name: 'Amazon.com Inc.',      spot: 215.00, iv: 30, ivr: 30, ivMin: 18, ivMax: 55 },
+  { sym: 'MSFT', name: 'Microsoft Corp.',      spot: 425.00, iv: 25, ivr: 25, ivMin: 15, ivMax: 45 },
+  { sym: 'AMD',  name: 'Adv. Micro Devices',   spot: 165.00, iv: 50, ivr: 50, ivMin: 30, ivMax: 80 },
+  { sym: 'COIN', name: 'Coinbase Global',      spot: 295.00, iv: 75, ivr: 65, ivMin: 50, ivMax: 110 },
+  { sym: 'PLTR', name: 'Palantir Tech.',       spot:  85.00, iv: 70, ivr: 55, ivMin: 40, ivMax: 100 },
+  { sym: 'HOOD', name: 'Robinhood Markets',    spot:  50.00, iv: 65, ivr: 60, ivMin: 35, ivMax: 95 },
+  { sym: 'NFLX', name: 'Netflix Inc.',         spot: 720.00, iv: 30, ivr: 35, ivMin: 20, ivMax: 55 },
+  { sym: 'BABA', name: 'Alibaba Group',        spot:  95.00, iv: 40, ivr: 75, ivMin: 25, ivMax: 65 },
+  { sym: 'GME',  name: 'GameStop Corp.',       spot:  25.00, iv: 100, ivr: 80, ivMin: 50, ivMax: 200 },
+  { sym: 'IBIT', name: 'iShares Bitcoin ETF',  spot:  60.00, iv: 50, ivr: 55, ivMin: 30, ivMax: 80 },
+  { sym: 'SPY',  name: 'S&P 500 ETF',          spot: 580.00, iv: 15, ivr: 20, ivMin: 8, ivMax: 30 },
+  { sym: 'QQQ',  name: 'NASDAQ-100 ETF',       spot: 500.00, iv: 18, ivr: 25, ivMin: 10, ivMax: 35 },
+];
+
+// Lookup typical IV min/max for a ticker (for IV Rank calculation)
+function getTickerIvRange(sym) {
+  const t = TICKERS.find(x => x.sym === sym);
+  return t ? { ivMin: t.ivMin, ivMax: t.ivMax } : { ivMin: 20, ivMax: 80 };
+}
+
+// Compute IV Rank from current IV using ticker's typical range
+function computeIvRank(currentIv, sym) {
+  const { ivMin, ivMax } = getTickerIvRange(sym);
+  if (ivMax <= ivMin) return 50;
+  const ivr = ((currentIv - ivMin) / (ivMax - ivMin)) * 100;
+  return Math.max(0, Math.min(100, Math.round(ivr)));
+}
+
+// Hardcoded fallback expirations (when Yahoo hasn't loaded yet or fails)
+const FALLBACK_EXPIRATIONS = [
+  { unix: Math.floor(new Date('2026-12-18').getTime() / 1000), label: 'Dec 18, 2026' },
+  { unix: Math.floor(new Date('2027-01-15').getTime() / 1000), label: 'Jan 15, 2027' },
+  { unix: Math.floor(new Date('2027-06-18').getTime() / 1000), label: 'Jun 18, 2027' },
+  { unix: Math.floor(new Date('2027-12-17').getTime() / 1000), label: 'Dec 17, 2027' },
+  { unix: Math.floor(new Date('2028-01-21').getTime() / 1000), label: 'Jan 21, 2028' },
+  { unix: Math.floor(new Date('2028-06-16').getTime() / 1000), label: 'Jun 16, 2028' },
+  { unix: Math.floor(new Date('2028-12-15').getTime() / 1000), label: 'Dec 15, 2028' },
+];
+
+// Live data state — populated from Yahoo or screenshot
+let liveData = {
+  symbol: 'TSLA',
+  expirations: FALLBACK_EXPIRATIONS.slice(),     // [{unix, label}]
+  chains: {},                                     // { unix: {calls, puts, fetchedAt} }
+  hasRealExpirations: false,                      // true once Yahoo returns
+  source: 'mock',                                 // 'mock' | 'yahoo' | 'screenshot'
+};
+
+// Initial rows seeded with reasonable defaults around TSLA $450 area
+let rows = [
+  { expUnix: FALLBACK_EXPIRATIONS[0].unix, strike: 500 },
+  { expUnix: FALLBACK_EXPIRATIONS[1].unix, strike: 500 },
+  { expUnix: FALLBACK_EXPIRATIONS[3].unix, strike: 700 },
+  { expUnix: FALLBACK_EXPIRATIONS[1].unix, strike: 400 },
+  { expUnix: FALLBACK_EXPIRATIONS[1].unix, strike: 700 },
+  { expUnix: FALLBACK_EXPIRATIONS[1].unix, strike: 600 },
+  { expUnix: FALLBACK_EXPIRATIONS[2].unix, strike: 600 },
+  { expUnix: FALLBACK_EXPIRATIONS[4].unix, strike: 940 },
+];
+
+let editingIdx = null;
+let wheelValue = null;
+let mode = 'curated';
+let editingSide = 'buy'; // 'buy' or 'sell' - which side the edit modal is operating on
+
+// =============================================================================
+//  SELL SIDE STATE (independent from buy side)
+// =============================================================================
+
+// Short-dated expirations (computed dynamically from today)
+function generateSellFallbackExpirations() {
+  const now = Date.now();
+  const days = [14, 21, 30, 45, 60, 90, 120, 180];
+  return days.map(d => {
+    const date = new Date(now + d * 86400 * 1000);
+    // Snap to next Friday
+    const dayOfWeek = date.getUTCDay();
+    const daysToFriday = (5 - dayOfWeek + 7) % 7;
+    date.setUTCDate(date.getUTCDate() + daysToFriday);
+    const unix = Math.floor(date.getTime() / 1000);
+    return {
+      unix,
+      label: date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' }),
+    };
+  });
+}
+
+const SELL_FALLBACK_EXPIRATIONS = generateSellFallbackExpirations();
+
+let liveDataSell = {
+  symbol: 'TSLA',
+  expirations: SELL_FALLBACK_EXPIRATIONS.slice(),
+  chains: {},
+  hasRealExpirations: false,
+  source: 'mock',
+};
+
+// Sell-side curated rows — 8 OTM strikes by default, all on a ~45-day expiration
+function generateSellDefaultRows(spot) {
+  const step = strikeStep(spot);
+  const round = (mult) => Math.max(step, Math.round((spot * mult) / step) * step);
+  const exps = liveDataSell.expirations;
+  // Pick the closest to 45 days from now
+  const targetSec = Date.now() / 1000 + 45 * 86400;
+  let bestExp = exps[0];
+  let minDelta = Infinity;
+  exps.forEach(e => {
+    const d = Math.abs(e.unix - targetSec);
+    if (d < minDelta) { minDelta = d; bestExp = e; }
+  });
+  // 8 OTM strikes
+  const multipliers = [1.05, 1.10, 1.15, 1.20, 1.25, 1.30, 1.40, 1.50];
+  return multipliers.map(m => ({ expUnix: bestExp.unix, strike: round(m) }));
+}
+
+let sellRows = generateSellDefaultRows(450);
+
+// =============================================================================
+//  MATH HELPERS (unchanged)
+// =============================================================================
+
+function ncdf(x) {
+  const a1=0.254829592, a2=-0.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429, p=0.3275911;
+  const sign = x<0?-1:1;
+  x = Math.abs(x)/Math.sqrt(2);
+  const t = 1.0/(1.0+p*x);
+  const y = 1.0 - (((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+  return 0.5*(1.0+sign*y);
+}
+function bsCall(S, K, T, r, sigma) {
+  const d1 = (Math.log(S/K) + (r+sigma*sigma/2)*T)/(sigma*Math.sqrt(T));
+  const d2 = d1 - sigma*Math.sqrt(T);
+  return S*ncdf(d1) - K*Math.exp(-r*T)*ncdf(d2);
+}
+function strikeStep(spot) {
+  if (spot < 5) return 0.50;
+  if (spot < 25) return 1;
+  if (spot < 100) return 2.50;
+  if (spot < 500) return 5;
+  if (spot < 1000) return 10;
+  return 25;
+}
+function daysUntilUnix(unix) {
+  const today = Date.now();
+  return Math.max(1, Math.round((unix * 1000 - today) / (1000*60*60*24)));
+}
+function colorFor(t) {
+  const stops = [[34,197,94],[132,204,22],[234,179,8],[249,115,22],[239,68,68]];
+  const x = t*(stops.length-1);
+  const i = Math.floor(x), f = x-i;
+  if (i >= stops.length-1) return `rgba(${stops[stops.length-1].join(',')},0.55)`;
+  const a = stops[i], b = stops[i+1];
+  return `rgba(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)},0.55)`;
+}
+// P(keep) color: high P(keep) = green (likely to keep premium), low = red (likely assignment)
+function pKeepColor(delta) {
+  if (delta == null) return '#94a3b8';
+  const pKeep = 1 - delta;
+  const stops = [
+    { p: 0,    c: [239, 68, 68] },   // red — assignment almost certain
+    { p: 0.3,  c: [249, 115, 22] },  // orange
+    { p: 0.5,  c: [234, 179, 8] },   // amber — coin flip
+    { p: 0.7,  c: [132, 204, 22] },  // lime
+    { p: 1.0,  c: [34, 197, 94] },   // green — keeping it almost certain
+  ];
+  if (pKeep <= stops[0].p) return `rgb(${stops[0].c.join(',')})`;
+  if (pKeep >= stops[stops.length-1].p) return `rgb(${stops[stops.length-1].c.join(',')})`;
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (pKeep <= stops[i+1].p) {
+      const a = stops[i], b = stops[i+1];
+      const t = (pKeep - a.p) / (b.p - a.p);
+      const r = Math.round(a.c[0] + (b.c[0] - a.c[0]) * t);
+      const g = Math.round(a.c[1] + (b.c[1] - a.c[1]) * t);
+      const bl = Math.round(a.c[2] + (b.c[2] - a.c[2]) * t);
+      return `rgb(${r},${g},${bl})`;
+    }
+  }
+  return '#94a3b8';
+}
+// CAGR color anchored to user's target growth rate.
+// cagr <= target → green (works in your scenario)
+// cagr = target + 20% → red (needs unrealistic growth)
+function colorForCagrVsTarget(cagr, target) {
+  if (cagr <= target) return colorFor(0);
+  const overshoot = cagr - target;
+  const t = Math.min(1, overshoot / 0.20);
+  return colorFor(t);
+}
+function heatColor(value, scale = 100) {
+  // 0 = green (good for buyers), scale = red (bad for buyers)
+  const t = Math.min(1, Math.max(0, value / scale));
+  const stops = [[34,197,94],[132,204,22],[234,179,8],[249,115,22],[239,68,68]];
+  const x = t*(stops.length-1);
+  const i = Math.floor(x), f = x-i;
+  if (i >= stops.length-1) return `rgb(${stops[stops.length-1].join(',')})`;
+  const a = stops[i], b = stops[i+1];
+  return `rgb(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)})`;
+}
+// Custom non-linear color for Target %/yr field — biased aggressively toward red:
+// 0-5% dark→bright green, 5-10% green→lime, 10-20% lime→amber, 20-30% amber→red, 30%+ deep red
+function targetHeatColor(pct) {
+  const stops = [
+    { p: 0,   c: [22, 128, 60] },     // dark green
+    { p: 5,   c: [34, 197, 94] },     // bright green
+    { p: 10,  c: [132, 204, 22] },    // lime
+    { p: 20,  c: [234, 179, 8] },     // amber
+    { p: 30,  c: [239, 68, 68] },     // red
+    { p: 100, c: [140, 20, 20] },     // deep red
+  ];
+  if (pct <= stops[0].p) return `rgb(${stops[0].c.join(',')})`;
+  if (pct >= stops[stops.length-1].p) return `rgb(${stops[stops.length-1].c.join(',')})`;
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (pct <= stops[i+1].p) {
+      const a = stops[i], b = stops[i+1];
+      const t = (pct - a.p) / (b.p - a.p);
+      const r = Math.round(a.c[0] + (b.c[0] - a.c[0]) * t);
+      const g = Math.round(a.c[1] + (b.c[1] - a.c[1]) * t);
+      const bl = Math.round(a.c[2] + (b.c[2] - a.c[2]) * t);
+      return `rgb(${r},${g},${bl})`;
+    }
+  }
+  return `rgb(${stops[stops.length-1].c.join(',')})`;
+}
+function fmt(n) { return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function pct(n) { return (n*100).toFixed(2) + '%'; }
+
+// =============================================================================
+//  LIVE DATA FETCHING
+// =============================================================================
+
+async function fetchQuote(symbol) {
+  const pill = document.getElementById('livePill');
+  pill.textContent = 'LIVE…';
+  pill.className = 'live-pill loading';
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 7000);
+    const res = await fetch(`/api/quote?symbol=${encodeURIComponent(symbol)}`, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    pill.textContent = 'LIVE';
+    pill.className = 'live-pill live';
+    return data;
+  } catch (err) {
+    console.warn('Quote fetch failed:', err.message);
+    const isRateLimit = err.message && err.message.toLowerCase().includes('rate');
+    pill.textContent = isRateLimit ? 'WAIT' : (err.name === 'AbortError' ? 'SLOW' : 'OFFLINE');
+    pill.className = 'live-pill error';
+    pill.title = err.message || 'Network issue';
+    return null;
+  }
+}
+
+async function fetchOptions(symbol, dateUnix = null) {
+  try {
+    const url = `/api/options?symbol=${encodeURIComponent(symbol)}${dateUnix ? `&date=${dateUnix}` : ''}`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    const res = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  } catch (err) {
+    console.warn('Options fetch failed:', err.message);
+    return null;
+  }
+}
+
+// Loads expirations + default chain for the longest LEAPS expiration available
+async function loadTickerChain(symbol) {
+  const initial = await fetchOptions(symbol);
+  if (!initial || !initial.expirations || initial.expirations.length === 0) {
+    return false;
+  }
+  // Filter to LEAPS-ish range (90 days to 3 years out)
+  const now = Date.now() / 1000;
+  const minSec = 90 * 86400;
+  const maxSec = 3 * 365 * 86400;
+  const filtered = initial.expirations.filter(e => {
+    const delta = e.unix - now;
+    return delta > minSec && delta < maxSec;
+  });
+  const exps = filtered.length > 0 ? filtered : initial.expirations;
+
+  liveData.symbol = symbol;
+  liveData.expirations = exps;
+  liveData.hasRealExpirations = true;
+
+  // Cache the chain that Yahoo returned with the initial request
+  if (initial.chainExpiration && initial.calls) {
+    liveData.chains[initial.chainExpiration] = {
+      calls: initial.calls,
+      puts: initial.puts,
+      strikes: initial.strikes,
+      fetchedAt: Date.now(),
+    };
+  }
+
+  // Don't auto-prefetch other chains - too many Yahoo calls. Fetch on demand.
+
+  populateExpirationDropdowns();
+  return true;
+}
+
+async function fetchAndCacheChain(symbol, unix) {
+  if (liveData.chains[unix]) return liveData.chains[unix];
+  const data = await fetchOptions(symbol, unix);
+  if (data && data.calls) {
+    liveData.chains[unix] = {
+      calls: data.calls,
+      puts: data.puts,
+      strikes: data.strikes,
+      fetchedAt: Date.now(),
+    };
+    render();
+    return liveData.chains[unix];
+  }
+  return null;
+}
+
+// Look up real price for a (expUnix, strike, side); returns null if not available
+function getRealContract(unix, strike, side = 'call') {
+  const chain = liveData.chains[unix];
+  if (!chain) return null;
+  const list = side === 'call' ? chain.calls : chain.puts;
+  if (!list) return null;
+  // Find exact strike, with tolerance for floating point
+  const contract = list.find(c => Math.abs(c.strike - strike) < 0.01);
+  if (!contract) return null;
+  return contract;
+}
+
+// Sell-side equivalent — reads from liveDataSell
+function getRealContractSell(unix, strike, side = 'call') {
+  const chain = liveDataSell.chains[unix];
+  if (!chain) return null;
+  const list = side === 'call' ? chain.calls : chain.puts;
+  if (!list) return null;
+  const contract = list.find(c => Math.abs(c.strike - strike) < 0.01);
+  if (!contract) return null;
+  return contract;
+}
+
+// Best estimate of premium for (unix, strike), now always BS so IV slider works.
+// Effective IV per strike = (chain's per-strike IV) × (user IV / chain ATM IV),
+// preserving volatility smile while making IV slider move all prices proportionally.
+// If no chain data for this strike, fall back to user's IV directly.
+function getPremium(spot, sigma, r, unix, strike, side = 'call') {
+  const contract = getRealContract(unix, strike, side);
+  const chain = liveData.chains[unix];
+  const days = daysUntilUnix(unix);
+  const T = days / 365;
+
+  let effectiveSigma = sigma;
+  let hasChainIv = false;
+
+  if (contract && contract.iv > 0 && chain && chain.chainAtmIv && chain.chainAtmIv > 0.05) {
+    // Scale this strike's IV proportionally with user's IV adjustment
+    const scaleFactor = sigma / chain.chainAtmIv;
+    effectiveSigma = contract.iv * scaleFactor;
+    hasChainIv = true;
+  }
+
+  if (effectiveSigma <= 0.01) effectiveSigma = 0.05;
+
+  const fn = side === 'call' ? bsCall : null;
+  if (!fn) return { premium: 0, isReal: false, delta: null, iv: effectiveSigma };
+
+  // Compute delta — use real if available, else BS-derived
+  let delta;
+  if (contract && contract.delta != null) {
+    delta = contract.delta;
+  } else {
+    const d1 = (Math.log(spot/strike) + (r + effectiveSigma*effectiveSigma/2)*T) / (effectiveSigma*Math.sqrt(T));
+    delta = ncdf(d1);
+  }
+
+  const premium = fn(spot, strike, T, r, effectiveSigma);
+  return {
+    premium,
+    isReal: hasChainIv,  // Has chain IV (per-strike smile data preserved)
+    delta,
+    iv: effectiveSigma,  // Per-strike IV used in calc, for display
+  };
+}
+
+// Sell-side version — same math, reads from liveDataSell
+function getPremiumSell(spot, sigma, r, unix, strike, side = 'call') {
+  const contract = getRealContractSell(unix, strike, side);
+  const chain = liveDataSell.chains[unix];
+  const days = daysUntilUnix(unix);
+  const T = days / 365;
+
+  let effectiveSigma = sigma;
+  let hasChainIv = false;
+
+  if (contract && contract.iv > 0 && chain && chain.chainAtmIv && chain.chainAtmIv > 0.05) {
+    const scaleFactor = sigma / chain.chainAtmIv;
+    effectiveSigma = contract.iv * scaleFactor;
+    hasChainIv = true;
+  }
+
+  if (effectiveSigma <= 0.01) effectiveSigma = 0.05;
+
+  const fn = side === 'call' ? bsCall : null;
+  if (!fn) return { premium: 0, isReal: false, delta: null, iv: effectiveSigma };
+
+  let delta;
+  if (contract && contract.delta != null) {
+    delta = contract.delta;
+  } else {
+    const d1 = (Math.log(spot/strike) + (r + effectiveSigma*effectiveSigma/2)*T) / (effectiveSigma*Math.sqrt(T));
+    delta = ncdf(d1);
+  }
+
+  const premium = fn(spot, strike, T, r, effectiveSigma);
+  return { premium, isReal: hasChainIv, delta, iv: effectiveSigma };
+}
+
+// =============================================================================
+//  SCREENSHOT UPLOAD
+// =============================================================================
+
+async function handleScreenshot(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    setUploadStatus('Not an image file', 'error');
+    return;
+  }
+
+  setUploadStatus('Reading image…', 'loading');
+  document.getElementById('uploadBtn').classList.add('loading');
+  document.getElementById('uploadBtnText').textContent = 'Reading image…';
+
+  // Read file as base64
+  const reader = new FileReader();
+  reader.onerror = () => {
+    setUploadStatus('Failed to read file', 'error');
+    document.getElementById('uploadBtn').classList.remove('loading');
+    document.getElementById('uploadBtnText').textContent = 'Import Chain from Screenshot';
+  };
+  reader.onload = async () => {
+    const dataUrl = reader.result;
+    setUploadStatus('Analyzing with AI…', 'loading');
+    document.getElementById('uploadBtnText').textContent = 'Analyzing with AI…';
+    try {
+      const res = await fetch('/api/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'HTTP ' + res.status }));
+        const msg = err.detail ? `${err.error}: ${err.detail.slice(0, 100)}` : err.error || ('HTTP ' + res.status);
+        throw new Error(msg);
+      }
+      const data = await res.json();
+      applyScreenshotData(data);
+      document.getElementById('uploadBtn').classList.remove('loading');
+      document.getElementById('uploadBtn').classList.add('success');
+      document.getElementById('uploadBtnText').textContent = '✓ Loaded — Import Another';
+      setTimeout(() => {
+        document.getElementById('uploadBtn').classList.remove('success');
+        document.getElementById('uploadBtnText').textContent = 'Import Chain from Screenshot';
+      }, 4000);
+    } catch (err) {
+      console.error('Extract error:', err);
+      setUploadStatus('Error: ' + err.message, 'error');
+      document.getElementById('uploadBtn').classList.remove('loading');
+      document.getElementById('uploadBtnText').textContent = 'Import Chain from Screenshot';
+    }
+    // Reset file input so user can upload same file again
+    event.target.value = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+function setUploadStatus(msg, type = '') {
+  const el = document.getElementById('uploadStatus');
+  el.textContent = msg;
+  el.className = 'upload-status ' + type;
+}
+
+function applyScreenshotData(data) {
+  const { ticker, spot, expiration, strikes } = data;
+  if (!strikes || strikes.length === 0) {
+    setUploadStatus('No strikes found in screenshot', 'error');
+    return;
+  }
+
+  // Determine which side to populate based on current tab
+  const isSellMode = mode === 'sellPicks' || mode === 'sellSweep';
+  const target = isSellMode ? liveDataSell : liveData;
+
+  // Reset manual IVR flag — new chain should set its own IVR
+  ivRankManuallySet = false;
+
+  // Update ticker if provided (buy side updates display; sell side keeps in state only)
+  if (ticker && ticker !== 'UNKNOWN') {
+    if (!isSellMode) {
+      document.getElementById('tickerDisplay').textContent = ticker;
+    }
+    target.symbol = ticker;
+  }
+  // Update spot (shared between sides since it's the underlying stock)
+  if (spot && spot > 0) {
+    document.getElementById('spot').value = spot.toFixed(2);
+    lastCommittedSpot = spot;
+  }
+
+  // Find ATM IV from screenshot
+  let chainAtmIv = null;
+  if (strikes.length > 0 && spot) {
+    const byDistance = strikes
+      .filter(s => s.call_iv != null && s.call_iv > 0)
+      .sort((a, b) => Math.abs(a.strike - spot) - Math.abs(b.strike - spot));
+    if (byDistance.length > 0) {
+      chainAtmIv = byDistance[0].call_iv;
+      const ivPct = chainAtmIv < 2 ? chainAtmIv * 100 : chainAtmIv;
+      document.getElementById('iv').value = Math.round(ivPct);
+      const sym = ticker && ticker !== 'UNKNOWN' ? ticker : target.symbol;
+      document.getElementById('ivRank').value = computeIvRank(ivPct, sym);
+      chainAtmIv = chainAtmIv < 2 ? chainAtmIv : chainAtmIv / 100;
+    }
+  }
+  let medianIv = chainAtmIv;
+
+  // Build expiration entry
+  let expUnix = null;
+  if (expiration) {
+    const expDate = new Date(expiration + 'T16:00:00Z');
+    if (!isNaN(expDate.getTime())) {
+      expUnix = Math.floor(expDate.getTime() / 1000);
+      const label = expDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+      if (!target.expirations.find(e => e.unix === expUnix)) {
+        target.expirations.push({ unix: expUnix, label });
+        target.expirations.sort((a, b) => a.unix - b.unix);
+      }
+      if (isSellMode) populateSellExpirationDropdowns();
+      else populateExpirationDropdowns();
+    }
+  }
+  if (!expUnix) {
+    expUnix = target.expirations[target.expirations.length - 1].unix;
+  }
+
+  // Build chain data
+  const calls = strikes
+    .filter(s => s.call_last != null && s.call_last > 0)
+    .map(s => ({
+      strike: s.strike,
+      bid: s.call_last, ask: s.call_last, last: s.call_last,
+      iv: s.call_iv != null ? (s.call_iv < 2 ? s.call_iv : s.call_iv / 100) : 0,
+      delta: s.call_delta != null ? Math.abs(s.call_delta) : null,
+      oi: 0, vol: 0,
+    }));
+  const puts = strikes
+    .filter(s => s.put_last != null && s.put_last > 0)
+    .map(s => ({
+      strike: s.strike,
+      bid: s.put_last, ask: s.put_last, last: s.put_last,
+      iv: s.put_iv != null ? (s.put_iv < 2 ? s.put_iv : s.put_iv / 100) : 0,
+      delta: s.put_delta != null ? Math.abs(s.put_delta) : null,
+      oi: 0, vol: 0,
+    }));
+  target.chains[expUnix] = { calls, puts, strikes: strikes.map(s => s.strike), chainAtmIv, fetchedAt: Date.now() };
+  target.source = 'screenshot';
+
+  // Replace rows on whichever side is active
+  if (isSellMode) {
+    sellRows = calls.map(c => ({ expUnix, strike: c.strike }));
+    document.getElementById('sellSweepExp').value = expUnix;
+  } else {
+    rows = calls.map(c => ({ expUnix, strike: c.strike }));
+    document.getElementById('sweepExp').value = expUnix;
+  }
+
+  // Update live pill (only on buy side since sell doesn't have its own pill)
+  if (!isSellMode) {
+    const pill = document.getElementById('livePill');
+    pill.textContent = 'SHOT';
+    pill.className = 'live-pill live';
+    pill.title = 'Data extracted from uploaded screenshot';
+  }
+
+  const sideLabel = isSellMode ? ' (sell side)' : '';
+  setUploadStatus(`✓ Loaded ${strikes.length} strikes for ${ticker || 'ticker'}${sideLabel} · ${target.expirations.find(e => e.unix === expUnix)?.label || ''}${medianIv ? ' · IV auto-set to ' + Math.round(medianIv < 2 ? medianIv * 100 : medianIv) + '%' : ''}`, 'success');
+
+  render();
+}
+
+
+function populateExpirationDropdowns() {
+  const editSel = document.getElementById('editExp');
+  const sweepSel = document.getElementById('sweepExp');
+  const prevSweep = sweepSel.value;
+
+  [editSel, sweepSel].forEach(sel => {
+    sel.innerHTML = '';
+    liveData.expirations.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.unix;
+      opt.textContent = e.label;
+      sel.appendChild(opt);
+    });
+  });
+
+  // Default sweep to longest expiration
+  if (liveData.expirations.length > 0) {
+    const longest = liveData.expirations[liveData.expirations.length - 1];
+    sweepSel.value = prevSweep && liveData.expirations.find(e => e.unix === parseInt(prevSweep))
+      ? prevSweep
+      : longest.unix;
+  }
+
+  // Remap any rows pointing to old expirations to nearest available
+  rows = rows.map(r => {
+    const exact = liveData.expirations.find(e => e.unix === r.expUnix);
+    if (exact) return r;
+    // Find closest by absolute date difference
+    let closest = liveData.expirations[0];
+    let minDiff = Infinity;
+    liveData.expirations.forEach(e => {
+      const diff = Math.abs(e.unix - r.expUnix);
+      if (diff < minDiff) { minDiff = diff; closest = e; }
+    });
+    return { expUnix: closest.unix, strike: r.strike };
+  });
+
+  render();
+}
+
+function getExpLabel(unix) {
+  const exp = liveData.expirations.find(e => e.unix === unix);
+  return exp ? exp.label : new Date(unix * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+// Sell side equivalent — uses liveDataSell.expirations
+function populateSellExpirationDropdowns() {
+  const sweepSel = document.getElementById('sellSweepExp');
+  if (!sweepSel) return;
+  const prevSweep = sweepSel.value;
+  sweepSel.innerHTML = '';
+  liveDataSell.expirations.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.unix;
+    opt.textContent = e.label;
+    sweepSel.appendChild(opt);
+  });
+
+  // Default sell sweep to a mid-range expiration (~45-60 days)
+  if (liveDataSell.expirations.length > 0) {
+    if (prevSweep && liveDataSell.expirations.find(e => e.unix === parseInt(prevSweep))) {
+      sweepSel.value = prevSweep;
+    } else {
+      // Pick the expiration in the middle of the list
+      const mid = Math.floor(liveDataSell.expirations.length / 2);
+      sweepSel.value = liveDataSell.expirations[mid].unix;
+    }
+  }
+
+  // Remap sellRows to nearest available expiration if needed
+  sellRows = sellRows.map(r => {
+    const exact = liveDataSell.expirations.find(e => e.unix === r.expUnix);
+    if (exact) return r;
+    let closest = liveDataSell.expirations[0];
+    let minDiff = Infinity;
+    liveDataSell.expirations.forEach(e => {
+      const diff = Math.abs(e.unix - r.expUnix);
+      if (diff < minDiff) { minDiff = diff; closest = e; }
+    });
+    return { expUnix: closest.unix, strike: r.strike };
+  });
+}
+
+function getSellExpLabel(unix) {
+  const exp = liveDataSell.expirations.find(e => e.unix === unix);
+  return exp ? exp.label : new Date(unix * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+// =============================================================================
+//  TICKER FLOW
+// =============================================================================
+
+function applyTickerDataLocal(symbol, spot, iv, ivr) {
+  const oldSpot = parseFloat(document.getElementById('spot').value) || spot;
+  const newStep = strikeStep(spot);
+  rows = rows.map(r => {
+    const moneyness = r.strike / oldSpot;
+    const raw = moneyness * spot;
+    const rounded = Math.round(raw / newStep) * newStep;
+    return { expUnix: r.expUnix, strike: Math.max(newStep, +rounded.toFixed(2)) };
+  });
+  document.getElementById('tickerDisplay').textContent = symbol;
+  document.getElementById('spot').value = spot.toFixed(2);
+  lastCommittedSpot = spot;
+  if (iv !== null && iv !== undefined) document.getElementById('iv').value = iv;
+  if (ivr !== null && ivr !== undefined) document.getElementById('ivRank').value = ivr;
+}
+
+async function selectTicker(t) {
+  // Reset manual IVR flag - new ticker should auto-compute its own IVR
+  ivRankManuallySet = false;
+  // Immediate UI update with hardcoded values
+  applyTickerDataLocal(t.sym, t.spot, t.iv, t.ivr ?? 50);
+  closeTickerPicker();
+  // Reset live data for new ticker
+  liveData.chains = {};
+  liveData.hasRealExpirations = false;
+  liveData.expirations = FALLBACK_EXPIRATIONS.slice();
+  populateExpirationDropdowns();
+
+  // Fetch real spot
+  const quote = await fetchQuote(t.sym);
+  if (quote && quote.spot) {
+    applyTickerDataLocal(t.sym, quote.spot, t.iv, t.ivr ?? 50);
+  }
+  // Fetch real options chain
+  await loadTickerChain(t.sym);
+  render();
+}
+
+// =============================================================================
+//  RENDER — CURATED (Picks)
+// =============================================================================
+
+function renderCurated(spot, sigma, r) {
+  document.getElementById('basePxC').textContent = spot.toFixed(2);
+  const expectedGrowth = (parseFloat(document.getElementById('expectedGrowth').value) || 10) / 100;
+
+  const computed = rows.map(row => {
+    const days = daysUntilUnix(row.expUnix);
+    const { premium, isReal, delta, iv } = getPremium(spot, sigma, r, row.expUnix, row.strike, 'call');
+    const bept = row.strike + premium;
+    const cagr = Math.pow(bept/spot, 365/days) - 1;
+    const perDay = premium / days;
+    const leverage = spot / Math.max(0.01, premium);
+    return { ...row, expLabel: getExpLabel(row.expUnix), days, premium, bept, cagr, perDay, leverage, isReal, delta, iv };
+  });
+
+  const cagrs = computed.map(c => c.cagr);
+  const minC = Math.min(...cagrs), maxC = Math.max(...cagrs);
+  const worstIdx = cagrs.indexOf(maxC);
+  const perDays = computed.map(c => c.perDay);
+  const timePickIdx = perDays.indexOf(Math.min(...perDays));
+
+  // BALANCED: highest leverage among rows where CAGR <= target growth
+  let balancedIdx = -1;
+  let bestLev = -1;
+  computed.forEach((c, i) => {
+    if (c.cagr <= expectedGrowth && c.leverage > bestLev) {
+      bestLev = c.leverage;
+      balancedIdx = i;
+    }
+  });
+  // Track whether anyone qualified; fallback to lowest CAGR if not
+  const noQualified = balancedIdx === -1;
+  if (noQualified) balancedIdx = cagrs.indexOf(minC);
+
+  const tbody = document.getElementById('tbodyC');
+  tbody.innerHTML = '';
+  if (noQualified) {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'padding:8px 12px;text-align:center;font-size:11px;color:#d97706;background:#fef3c7;border-bottom:1px solid #fcd34d;font-weight:600;';
+    banner.innerHTML = `⚠ No row meets ${(expectedGrowth*100).toFixed(0)}% target — showing lowest-CAGR pick (${(minC*100).toFixed(1)}% needed)`;
+    tbody.appendChild(banner);
+  }
+  computed.forEach((c, i) => {
+    const t = (c.cagr - minC) / (maxC - minC || 1);
+    const color = colorFor(t);
+    const isBalanced = i === balancedIdx;
+    const isTimePick = i === timePickIdx && !isBalanced;
+    const div = document.createElement('div');
+    div.className = 'row'
+      + (isBalanced ? ' best' : '')
+      + (isTimePick ? ' timepick' : '');
+    div.onclick = () => openEdit(i);
+    div.innerHTML = `
+      <div class="date">
+        <span>${c.expLabel}</span>
+        <span style="font-size:9px;color:#5a6478;font-weight:500;">${c.days}d ${c.isReal ? '· <span style="color:#16a34a;font-weight:700;">REAL</span>' : '· <span style="color:#94a3b8;">EST</span>'}</span>
+        ${isBalanced ? (noQualified ? '<span class="marker">★ CLOSEST</span>' : '<span class="marker">★ BALANCED</span>') : ''}
+        ${isTimePick ? '<span class="marker">⏱ TIME</span>' : ''}
+      </div>
+      <div class="strike">
+        <span class="strike-val">${c.strike}</span>
+        <span class="prem-val">$${c.premium.toFixed(2)}</span>
+        <span class="pct-val">${((c.premium / c.strike) * 100).toFixed(1)}%</span>
+      </div>
+      <div>${fmt(c.bept)}</div>
+      <div class="perday-cell">$${c.perDay.toFixed(2)}</div>
+      <div class="lev-cell">${c.leverage.toFixed(1)}x</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${heatColor((c.iv * 100), 100)};font-size:10.5px;">${(c.iv * 100).toFixed(0)}%</div>
+      <div class="cagr-cell">
+        <div class="cagr-bg" style="background:${color};"></div>
+        <span class="cagr-val">${pct(c.cagr)}</span>
+      </div>
+    `;
+    tbody.appendChild(div);
+  });
+}
+
+// =============================================================================
+//  RENDER — SELL PICKS (curated comparison, seller perspective)
+// =============================================================================
+
+function renderSellPicks(spot, sigma, r) {
+  document.getElementById('basePxSP').textContent = spot.toFixed(2);
+  const expectedGrowth = (parseFloat(document.getElementById('expectedGrowth').value) || 10) / 100;
+
+  const computed = sellRows.map(row => {
+    const days = daysUntilUnix(row.expUnix);
+    const { premium, isReal, delta, iv } = getPremiumSell(spot, sigma, r, row.expUnix, row.strike, 'call');
+    const bept = row.strike + premium;
+    const cagr = Math.pow(bept/spot, 365/days) - 1;
+    const perDay = premium / days;
+    // Yield = premium / spot, annualized (return on capital tied up in the stock you'd write against)
+    const yieldAnn = (premium / spot) * (365 / days);
+    return { ...row, expLabel: getSellExpLabel(row.expUnix), days, premium, bept, cagr, perDay, yieldAnn, isReal, delta, iv };
+  });
+
+  const cagrs = computed.map(c => c.cagr);
+  const minC = Math.min(...cagrs), maxC = Math.max(...cagrs);
+
+  // SAFEST: highest premium income where CAGR-to-lose >= target growth
+  // (stock would need to grow faster than user's target to hurt this seller)
+  let safestIdx = -1;
+  let bestPrem = -1;
+  computed.forEach((c, i) => {
+    if (c.cagr >= expectedGrowth && c.premium > bestPrem) {
+      bestPrem = c.premium;
+      safestIdx = i;
+    }
+  });
+  const noQualified = safestIdx === -1;
+  if (noQualified) safestIdx = cagrs.indexOf(maxC); // fallback: row with highest CAGR-to-lose
+
+  const tbody = document.getElementById('tbodySP');
+  tbody.innerHTML = '';
+  if (noQualified) {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'padding:8px 12px;text-align:center;font-size:11px;color:#d97706;background:#fef3c7;border-bottom:1px solid #fcd34d;font-weight:600;';
+    banner.innerHTML = `⚠ All rows have CAGR-to-lose under ${(expectedGrowth*100).toFixed(0)}% — risky sells. Showing safest (${(maxC*100).toFixed(1)}% to lose).`;
+    tbody.appendChild(banner);
+  }
+  computed.forEach((c, i) => {
+    // INVERTED color: high CAGR = green (safer), low CAGR = red (riskier)
+    const t = 1 - (c.cagr - minC) / (maxC - minC || 1);
+    const color = colorFor(t);
+    const isSafest = i === safestIdx;
+    const div = document.createElement('div');
+    div.className = 'row' + (isSafest ? ' safest' : '');
+    div.onclick = () => openSellEdit(i);
+    div.innerHTML = `
+      <div class="date">
+        <span>${c.expLabel}</span>
+        <span style="font-size:9px;color:#5a6478;font-weight:500;">${c.days}d ${c.isReal ? '· <span style="color:#16a34a;font-weight:700;">REAL</span>' : '· <span style="color:#94a3b8;">EST</span>'}</span>
+        ${isSafest ? (noQualified ? '<span class="marker safest-marker">★ CLOSEST</span>' : '<span class="marker safest-marker">★ SAFEST</span>') : ''}
+      </div>
+      <div class="strike">
+        <span class="strike-val">${c.strike}</span>
+        <span class="prem-val">$${c.premium.toFixed(2)}</span>
+        <span class="pct-val">${((c.premium / c.strike) * 100).toFixed(1)}%</span>
+      </div>
+      <div>${fmt(c.bept)}</div>
+      <div class="pkeep-cell" style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${pKeepColor(c.delta)};">${c.delta != null ? Math.round((1 - c.delta) * 100) + '%' : '—'}</div>
+      <div class="yield-cell" style="color:#16a34a;">${(c.yieldAnn * 100).toFixed(1)}%</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${heatColor((c.iv * 100), 100)};font-size:10.5px;">${(c.iv * 100).toFixed(0)}%</div>
+      <div class="cagr-cell">
+        <div class="cagr-bg" style="background:${color};"></div>
+        <span class="cagr-val">${pct(c.cagr)}</span>
+      </div>
+    `;
+    tbody.appendChild(div);
+  });
+}
+
+// =============================================================================
+//  RENDER — SELL SWEEP (full chain, seller perspective)
+// =============================================================================
+
+function renderSellSweep(spot, sigma, r) {
+  document.getElementById('basePxSS').textContent = spot.toFixed(2);
+  const expUnix = parseInt(document.getElementById('sellSweepExp').value);
+  const rangePct = parseFloat(document.getElementById('sellSweepRange').value);
+  const expectedGrowth = (parseFloat(document.getElementById('expectedGrowth').value) || 10) / 100;
+  if (!expUnix) {
+    document.getElementById('tbodySS').innerHTML = '<div style="padding:20px;text-align:center;color:#5a6478;">Loading expirations…</div>';
+    return;
+  }
+  const days = daysUntilUnix(expUnix);
+  const step = strikeStep(spot);
+  const atm = Math.round(spot / step) * step;
+  const minStrike = Math.max(step, spot * (1 - rangePct));
+  const maxStrike = spot * (1 + rangePct);
+
+  // Use real strikes from chain if available
+  const chain = liveDataSell.chains[expUnix];
+  let strikeList;
+  if (chain && chain.calls && chain.calls.length > 0) {
+    strikeList = chain.calls
+      .filter(c => c.strike >= minStrike && c.strike <= maxStrike)
+      .map(c => c.strike)
+      .sort((a, b) => a - b);
+  } else {
+    strikeList = [];
+    const minK = Math.round(minStrike / step) * step;
+    const maxK = Math.round(maxStrike / step) * step;
+    for (let K = minK; K <= maxK; K += step) strikeList.push(+K.toFixed(2));
+  }
+
+  const computed = strikeList.map(K => {
+    const { premium, isReal, delta, iv } = getPremiumSell(spot, sigma, r, expUnix, K, 'call');
+    const bept = K + premium;
+    const cagr = Math.pow(bept/spot, 365/days) - 1;
+    const yieldAnn = (premium / spot) * (365 / days);
+    return { K, premium, bept, cagr, yieldAnn, isAtm: Math.abs(K - atm) < 0.01, isReal, delta, iv };
+  });
+  const cagrs = computed.map(c => c.cagr);
+  const minC = Math.min(...cagrs), maxC = Math.max(...cagrs);
+
+  // SAFEST: highest premium where CAGR-to-lose >= target
+  let safestIdx = -1;
+  let bestPrem = -1;
+  computed.forEach((c, i) => {
+    if (c.cagr >= expectedGrowth && c.premium > bestPrem) {
+      bestPrem = c.premium;
+      safestIdx = i;
+    }
+  });
+  if (safestIdx === -1) safestIdx = cagrs.indexOf(maxC);
+
+  const tbody = document.getElementById('tbodySS');
+  tbody.innerHTML = '';
+  if (!chain) {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'padding:6px 10px;text-align:center;font-size:10.5px;color:#fbbf24;background:#fef3c7;border-bottom:1px solid #e5ebf2;';
+    banner.textContent = '⌛ No chain loaded yet — showing Black-Scholes estimates';
+    tbody.appendChild(banner);
+  }
+  computed.forEach((c, i) => {
+    // INVERTED color: high CAGR = green (safer), low CAGR = red
+    const t = 1 - (c.cagr - minC) / (maxC - minC || 1);
+    const color = colorFor(t);
+    const isSafest = i === safestIdx;
+    const div = document.createElement('div');
+    div.className = 'row' + (isSafest ? ' safest' : '') + (c.isAtm && !isSafest ? ' atm' : '');
+    div.innerHTML = `
+      <div class="strike">
+        <div class="strike-line">
+          <span class="strike-val">${c.K}</span>
+          ${isSafest ? '<span class="badge-pill">★ SAFEST</span>' : c.isAtm ? '<span class="badge-pill atm">ATM</span>' : ''}
+        </div>
+        <span class="prem-val">$${c.premium.toFixed(2)}${c.isReal ? '' : '<span style="color:#94a3b8;font-weight:500;"> est</span>'}</span>
+        <span class="pct-val">${((c.premium / c.K) * 100).toFixed(1)}%</span>
+      </div>
+      <div>${fmt(c.bept)}</div>
+      <div class="pkeep-cell" style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10.5px;color:${pKeepColor(c.delta)};">${c.delta != null ? Math.round((1 - c.delta) * 100) + '%' : '—'}</div>
+      <div class="yield-cell" style="color:#16a34a;font-size:10.5px;">${(c.yieldAnn * 100).toFixed(0)}%</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${heatColor((c.iv * 100), 100)};font-size:10px;">${(c.iv * 100).toFixed(0)}%</div>
+      <div class="cagr-cell">
+        <div class="cagr-bg" style="background:${color};"></div>
+        <span class="cagr-val">${pct(c.cagr)}</span>
+      </div>
+    `;
+    tbody.appendChild(div);
+  });
+}
+
+// =============================================================================
+//  RENDER — SWEEP (full chain)
+// =============================================================================
+
+function renderSweep(spot, sigma, r) {
+  document.getElementById('basePxS').textContent = spot.toFixed(2);
+  const expUnix = parseInt(document.getElementById('sweepExp').value);
+  const rangePct = parseFloat(document.getElementById('sweepRange').value);
+  const expectedGrowth = (parseFloat(document.getElementById('expectedGrowth').value) || 10) / 100;
+  if (!expUnix) {
+    document.getElementById('tbodyS').innerHTML = '<div style="padding:20px;text-align:center;color:#5a6478;">Loading expirations…</div>';
+    return;
+  }
+  const days = daysUntilUnix(expUnix);
+  const step = strikeStep(spot);
+  const atm = Math.round(spot / step) * step;
+  const minStrike = Math.max(step, spot * (1 - rangePct));
+  const maxStrike = spot * (1 + rangePct);
+
+  // Use real strikes from chain if available; otherwise generate
+  const chain = liveData.chains[expUnix];
+  let strikeList;
+  if (chain && chain.calls && chain.calls.length > 0) {
+    strikeList = chain.calls
+      .filter(c => c.strike >= minStrike && c.strike <= maxStrike)
+      .map(c => c.strike)
+      .sort((a, b) => a - b);
+    // If user hasn't fetched it yet, trigger fetch and show what we have
+    if (chain.calls.length === 0) fetchAndCacheChain(liveData.symbol, expUnix);
+  } else {
+    // Generate strikes via step
+    strikeList = [];
+    const minK = Math.round(minStrike / step) * step;
+    const maxK = Math.round(maxStrike / step) * step;
+    for (let K = minK; K <= maxK; K += step) strikeList.push(+K.toFixed(2));
+    // Trigger fetch in background
+    fetchAndCacheChain(liveData.symbol, expUnix);
+  }
+
+  const computed = strikeList.map(K => {
+    const { premium, isReal, delta, iv } = getPremium(spot, sigma, r, expUnix, K, 'call');
+    const bept = K + premium;
+    const cagr = Math.pow(bept/spot, 365/days) - 1;
+    const leverage = spot / Math.max(0.01, premium);
+    return { K, premium, bept, cagr, leverage, isAtm: Math.abs(K - atm) < 0.01, isReal, delta, iv };
+  });
+  const cagrs = computed.map(c => c.cagr);
+  const minC = Math.min(...cagrs), maxC = Math.max(...cagrs);
+  const worstIdx = cagrs.indexOf(maxC);
+
+  // BALANCED: highest leverage with CAGR ≤ expected growth
+  let balancedIdx = -1;
+  let bestLev = -1;
+  computed.forEach((c, i) => {
+    if (c.cagr <= expectedGrowth && c.leverage > bestLev) {
+      bestLev = c.leverage;
+      balancedIdx = i;
+    }
+  });
+  if (balancedIdx === -1) balancedIdx = cagrs.indexOf(minC);
+
+  const tbody = document.getElementById('tbodyS');
+  tbody.innerHTML = '';
+  const anyReal = computed.some(c => c.isReal);
+  if (!chain) {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'padding:6px 10px;text-align:center;font-size:10.5px;color:#fbbf24;background:#fef3c7;border-bottom:1px solid #e5ebf2;';
+    banner.textContent = '⌛ Loading real chain… showing Black-Scholes estimates';
+    tbody.appendChild(banner);
+  }
+  computed.forEach((c, i) => {
+    const t = (c.cagr - minC) / (maxC - minC || 1);
+    const color = colorFor(t);
+    const isBalanced = i === balancedIdx;
+    const div = document.createElement('div');
+    div.className = 'row' + (isBalanced ? ' best' : '') + (c.isAtm && !isBalanced ? ' atm' : '');
+    div.innerHTML = `
+      <div class="strike">
+        <div class="strike-line">
+          <span class="strike-val">${c.K}</span>
+          ${isBalanced ? '<span class="badge-pill">★ BAL</span>' : c.isAtm ? '<span class="badge-pill atm">ATM</span>' : ''}
+        </div>
+        <span class="prem-val">$${c.premium.toFixed(2)}${c.isReal ? '' : '<span style="color:#94a3b8;font-weight:500;"> est</span>'}</span>
+        <span class="pct-val">${((c.premium / c.K) * 100).toFixed(1)}%</span>
+      </div>
+      <div>${fmt(c.bept)}</div>
+      <div class="lev-cell">${c.leverage.toFixed(1)}x</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${heatColor((c.iv * 100), 100)};font-size:10px;">${(c.iv * 100).toFixed(0)}%</div>
+      <div class="cagr-cell">
+        <div class="cagr-bg" style="background:${color};"></div>
+        <span class="cagr-val">${pct(c.cagr)}</span>
+      </div>
+    `;
+    tbody.appendChild(div);
+  });
+}
+
+// =============================================================================
+//  IV RANK BADGE
+// =============================================================================
+
+function updateIvRankBadge() {
+  const v = parseFloat(document.getElementById('ivRank').value) || 0;
+  const badge = document.getElementById('ivrBadge');
+  badge.classList.remove('cheap', 'fair', 'pricey');
+  if (v < 30) { badge.textContent = 'CHEAP'; badge.classList.add('cheap'); }
+  else if (v < 70) { badge.textContent = 'FAIR'; badge.classList.add('fair'); }
+  else { badge.textContent = 'PRICEY'; badge.classList.add('pricey'); }
+  // Apply heat color to IV Rank input
+  document.getElementById('ivRank').style.color = heatColor(v, 100);
+  // Apply heat color to IV (using 80 as "very high" for absolute IV)
+  const iv = parseFloat(document.getElementById('iv').value) || 0;
+  document.getElementById('iv').style.color = heatColor(iv, 80);
+  // Apply heat color to Target %/yr — custom non-linear scale (green at low, red by 30%)
+  const tgt = parseFloat(document.getElementById('expectedGrowth').value) || 0;
+  document.getElementById('expectedGrowth').style.color = targetHeatColor(tgt);
+}
+
+// =============================================================================
+//  ROOT RENDER + MODE SWITCH
+// =============================================================================
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.tab').forEach(t => {
+    const isOn = t.dataset.mode === m;
+    t.classList.toggle('on', isOn);
+    // Pink theme for sell tabs when active
+    t.classList.toggle('sell', isOn && (m === 'sellPicks' || m === 'sellSweep'));
+  });
+  document.getElementById('curatedView').style.display = m === 'curated' ? '' : 'none';
+  document.getElementById('sweepView').style.display = m === 'sweep' ? '' : 'none';
+  document.getElementById('sellPicksView').style.display = m === 'sellPicks' ? '' : 'none';
+  document.getElementById('sellSweepView').style.display = m === 'sellSweep' ? '' : 'none';
+  const notes = {
+    curated: 'Tap any row to edit · BALANCED = highest leverage that hits your target',
+    sweep: 'Full chain · BALANCED = highest leverage with CAGR under target · ATM marked',
+    sellPicks: 'Tap any row to edit · SAFEST = most premium where CAGR-to-lose ≥ target',
+    sellSweep: 'Full chain · SAFEST = most premium where CAGR-to-lose ≥ target · ATM marked',
+  };
+  document.getElementById('footNote').textContent = notes[m] || notes.curated;
+  render();
+}
+
+function render() {
+  updateIvRankBadge();
+  const spot = parseFloat(document.getElementById('spot').value) || 450;
+  const ivPct = parseFloat(document.getElementById('iv').value) || 55;
+  const sigma = ivPct / 100;
+  const r = 0.045;
+  if (mode === 'curated') renderCurated(spot, sigma, r);
+  else if (mode === 'sweep') renderSweep(spot, sigma, r);
+  else if (mode === 'sellPicks') renderSellPicks(spot, sigma, r);
+  else if (mode === 'sellSweep') renderSellSweep(spot, sigma, r);
+}
+
+// =============================================================================
+//  WHEEL PICKER (uses real strikes from chain when available)
+// =============================================================================
+
+function buildWheel(currentStrike, expUnix) {
+  const spot = parseFloat(document.getElementById('spot').value) || 450;
+  const step = strikeStep(spot);
+  document.getElementById('stepHint').textContent = step % 1 === 0 ? step : step.toFixed(2);
+  const wheel = document.getElementById('strikeWheel');
+  wheel.innerHTML = '<div class="wheel-pad"></div>';
+
+  // Prefer real strikes from chain if available
+  let strikeList = [];
+  const chain = expUnix && liveData.chains[expUnix];
+  if (chain && chain.calls && chain.calls.length > 0) {
+    strikeList = chain.calls.map(c => c.strike).sort((a, b) => a - b);
+  } else {
+    // Generate around currentStrike
+    const rounded = Math.round(currentStrike / step) * step;
+    for (let i = -25; i <= 25; i++) {
+      const v = +(rounded + i * step).toFixed(2);
+      if (v > 0) strikeList.push(v);
+    }
+    // Fetch in background if we have a ticker
+    if (expUnix && liveData.symbol) fetchAndCacheChain(liveData.symbol, expUnix);
+  }
+
+  strikeList.forEach(v => {
+    const item = document.createElement('div');
+    item.className = 'wheel-item';
+    item.dataset.value = v;
+    item.textContent = v % 1 === 0 ? v : v.toFixed(2);
+    item.onclick = () => wheel.scrollTo({ top: item.offsetTop - (wheel.clientHeight - item.clientHeight) / 2, behavior: 'smooth' });
+    wheel.appendChild(item);
+  });
+  const padBottom = document.createElement('div');
+  padBottom.className = 'wheel-pad';
+  wheel.appendChild(padBottom);
+
+  setTimeout(() => {
+    // Snap to closest available strike
+    let closest = strikeList[0];
+    let minDiff = Infinity;
+    strikeList.forEach(v => {
+      const diff = Math.abs(v - currentStrike);
+      if (diff < minDiff) { minDiff = diff; closest = v; }
+    });
+    const target = wheel.querySelector(`[data-value="${closest}"]`);
+    if (target) {
+      wheel.scrollTop = target.offsetTop - (wheel.clientHeight - target.clientHeight) / 2;
+      updateWheelHighlight();
+    }
+  }, 30);
+}
+
+function updateWheelHighlight() {
+  const wheel = document.getElementById('strikeWheel');
+  const wheelCenter = wheel.scrollTop + wheel.clientHeight / 2;
+  const items = wheel.querySelectorAll('.wheel-item');
+  let closest = null, closestDist = Infinity;
+  items.forEach(item => {
+    const itemCenter = item.offsetTop + item.clientHeight / 2;
+    const dist = Math.abs(itemCenter - wheelCenter);
+    item.classList.remove('active', 'near');
+    if (dist < closestDist) { closestDist = dist; closest = item; }
+  });
+  items.forEach(item => {
+    const itemCenter = item.offsetTop + item.clientHeight / 2;
+    const dist = Math.abs(itemCenter - wheelCenter);
+    if (item === closest) item.classList.add('active');
+    else if (dist < 60) item.classList.add('near');
+  });
+  if (closest) wheelValue = parseFloat(closest.dataset.value);
+  updatePreview();
+  applyLiveEdit();
+}
+
+// =============================================================================
+//  EDIT MODAL
+// =============================================================================
+
+function updatePreview() {
+  if (!document.getElementById('modal').classList.contains('open')) return;
+  const expUnix = parseInt(document.getElementById('editExp').value);
+  const strike = wheelValue;
+  const cells = ['prevCost', 'prevBept', 'prevMove', 'prevCagr'];
+  if (!strike || strike <= 0 || isNaN(expUnix)) {
+    cells.forEach(id => document.getElementById(id).textContent = '—');
+    return;
+  }
+  const spot = parseFloat(document.getElementById('spot').value) || 450;
+  const ivPct = parseFloat(document.getElementById('iv').value) || 55;
+  const sigma = ivPct / 100;
+  const r = 0.045;
+  const days = daysUntilUnix(expUnix);
+  const { premium, isReal } = getPremium(spot, sigma, r, expUnix, strike, 'call');
+  const bept = strike + premium;
+  const move = bept - spot;
+  const cagr = Math.pow(bept/spot, 365/days) - 1;
+
+  const newValues = {
+    prevCost: '$' + premium.toFixed(2) + (isReal ? '' : ' est'),
+    prevBept: '$' + bept.toFixed(2),
+    prevMove: (move >= 0 ? '+$' : '-$') + Math.abs(move).toFixed(2),
+    prevCagr: (cagr*100).toFixed(2) + '%'
+  };
+  Object.entries(newValues).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el.textContent !== val) {
+      el.textContent = val;
+      el.classList.remove('flash');
+      void el.offsetWidth;
+      el.classList.add('flash');
+    }
+  });
+}
+
+function applyLiveEdit() {
+  if (editingIdx === null || editingIdx === -1) return;
+  if (!document.getElementById('modal').classList.contains('open')) return;
+  const expUnix = parseInt(document.getElementById('editExp').value);
+  const strike = wheelValue;
+  if (!strike || strike <= 0 || isNaN(expUnix)) return;
+  rows[editingIdx] = { expUnix, strike };
+  render();
+  setTimeout(() => {
+    const tbody = document.getElementById('tbodyC');
+    const row = tbody.children[editingIdx];
+    if (row) {
+      row.classList.remove('just-updated');
+      void row.offsetWidth;
+      row.classList.add('just-updated');
+    }
+  }, 10);
+}
+
+function openEdit(idx) {
+  editingIdx = idx;
+  editingSide = 'buy';
+  const isNew = idx === -1;
+  document.getElementById('modalTitle').textContent = isNew ? 'Add LEAP' : 'Edit LEAP';
+  document.getElementById('btnDelete').style.display = isNew ? 'none' : 'block';
+  const spot = parseFloat(document.getElementById('spot').value) || 450;
+  document.getElementById('subTicker').textContent = document.getElementById('tickerDisplay').textContent;
+  document.getElementById('subSpot').textContent = '$' + spot.toFixed(2);
+  // Populate edit modal's expiration dropdown with BUY-side expirations
+  refreshEditExpDropdown('buy');
+  let expUnix, strike;
+  if (isNew) {
+    const mid = Math.floor(liveData.expirations.length * 0.7);
+    expUnix = liveData.expirations[mid]?.unix || liveData.expirations[0]?.unix;
+    strike = Math.round(spot / strikeStep(spot)) * strikeStep(spot);
+  } else {
+    expUnix = rows[idx].expUnix;
+    strike = rows[idx].strike;
+  }
+  document.getElementById('editExp').value = expUnix;
+  buildWheel(strike, expUnix);
+  document.getElementById('modal').classList.add('open');
+}
+
+function openSellEdit(idx) {
+  editingIdx = idx;
+  editingSide = 'sell';
+  const isNew = idx === -1;
+  document.getElementById('modalTitle').textContent = isNew ? 'Add Call' : 'Edit Call';
+  document.getElementById('btnDelete').style.display = isNew ? 'none' : 'block';
+  const spot = parseFloat(document.getElementById('spot').value) || 450;
+  document.getElementById('subTicker').textContent = document.getElementById('tickerDisplay').textContent;
+  document.getElementById('subSpot').textContent = '$' + spot.toFixed(2);
+  // Populate edit modal's expiration dropdown with SELL-side expirations
+  refreshEditExpDropdown('sell');
+  let expUnix, strike;
+  if (isNew) {
+    // Default to a mid-range expiration (~45 days)
+    const mid = Math.floor(liveDataSell.expirations.length / 2);
+    expUnix = liveDataSell.expirations[mid]?.unix || liveDataSell.expirations[0]?.unix;
+    // Default strike: 10% OTM
+    strike = Math.round((spot * 1.10) / strikeStep(spot)) * strikeStep(spot);
+  } else {
+    expUnix = sellRows[idx].expUnix;
+    strike = sellRows[idx].strike;
+  }
+  document.getElementById('editExp').value = expUnix;
+  buildWheel(strike, expUnix);
+  document.getElementById('modal').classList.add('open');
+}
+
+// Swap the edit modal's expiration dropdown contents to match buy or sell side
+function refreshEditExpDropdown(side) {
+  const sel = document.getElementById('editExp');
+  if (!sel) return;
+  const exps = side === 'sell' ? liveDataSell.expirations : liveData.expirations;
+  sel.innerHTML = '';
+  exps.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.unix;
+    opt.textContent = e.label;
+    sel.appendChild(opt);
+  });
+}
+
+function closeEdit() {
+  document.getElementById('modal').classList.remove('open');
+  editingIdx = null;
+}
+
+function saveEdit() {
+  const expUnix = parseInt(document.getElementById('editExp').value);
+  const strike = wheelValue;
+  if (!strike || strike <= 0 || isNaN(expUnix)) { alert('Invalid strike or expiration'); return; }
+  const isSell = editingSide === 'sell';
+  const currentRows = isSell ? sellRows : rows;
+  let savedIdx;
+  if (editingIdx === -1) {
+    // + Add behavior: if MOST rows are on a different date, rebuild the
+    // comparison set around the chosen strike on the chosen date.
+    const matchingCount = currentRows.filter(r => r.expUnix === expUnix).length;
+    const shouldRegenerate = matchingCount < currentRows.length / 2;
+    if (shouldRegenerate) {
+      const spot = parseFloat(document.getElementById('spot').value) || strike;
+      const step = strikeStep(spot);
+      const round = (val) => Math.max(step, Math.round(val / step) * step);
+      let newRows;
+      if (isSell) {
+        // Sell-side spread: 8 strikes biased OTM around user's pick (covered call style)
+        newRows = [
+          { expUnix, strike: round(strike * 0.95) },
+          { expUnix, strike: strike },
+          { expUnix, strike: round(strike * 1.05) },
+          { expUnix, strike: round(strike * 1.10) },
+          { expUnix, strike: round(strike * 1.15) },
+          { expUnix, strike: round(strike * 1.20) },
+          { expUnix, strike: round(strike * 1.30) },
+          { expUnix, strike: round(strike * 1.45) },
+        ];
+      } else {
+        // Buy-side spread: ITM-biased (LEAPS style)
+        newRows = [
+          { expUnix, strike: round(strike * 0.80) },
+          { expUnix, strike: round(strike * 0.90) },
+          { expUnix, strike: round(strike * 0.95) },
+          { expUnix, strike: strike },
+          { expUnix, strike: round(strike * 1.05) },
+          { expUnix, strike: round(strike * 1.10) },
+          { expUnix, strike: round(strike * 1.20) },
+          { expUnix, strike: round(strike * 1.35) },
+        ];
+      }
+      const seen = new Set();
+      const deduped = newRows.filter(r => {
+        if (seen.has(r.strike)) return false;
+        seen.add(r.strike);
+        return true;
+      });
+      if (isSell) sellRows = deduped; else rows = deduped;
+      savedIdx = deduped.findIndex(r => r.strike === strike);
+      if (savedIdx === -1) savedIdx = 0;
+    } else {
+      if (isSell) {
+        sellRows.push({ expUnix, strike });
+        savedIdx = sellRows.length - 1;
+      } else {
+        rows.push({ expUnix, strike });
+        savedIdx = rows.length - 1;
+      }
+    }
+  } else {
+    if (isSell) sellRows[editingIdx] = { expUnix, strike };
+    else rows[editingIdx] = { expUnix, strike };
+    savedIdx = editingIdx;
+  }
+  closeEdit();
+  render();
+  setTimeout(() => {
+    const tbody = document.getElementById(isSell ? 'tbodySP' : 'tbodyC');
+    if (!tbody) return;
+    const row = tbody.children[savedIdx];
+    if (row) {
+      row.classList.remove('just-updated');
+      void row.offsetWidth;
+      row.classList.add('just-updated');
+      row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, 50);
+}
+
+function deleteRow() {
+  if (editingIdx !== null && editingIdx !== -1) {
+    if (editingSide === 'sell') sellRows.splice(editingIdx, 1);
+    else rows.splice(editingIdx, 1);
+    closeEdit();
+    render();
+  }
+}
+
+// =============================================================================
+//  TICKER PICKER
+// =============================================================================
+
+function renderTickerList(filter = '') {
+  const list = document.getElementById('tickerList');
+  const f = filter.toUpperCase().trim();
+  list.innerHTML = '';
+  const matches = TICKERS.filter(t => t.sym.includes(f) || t.name.toUpperCase().includes(f));
+  const isTickerLike = /^[A-Z]{1,5}$/.test(f);
+  const exactMatch = TICKERS.find(t => t.sym === f);
+  if (isTickerLike && !exactMatch) {
+    const customDiv = document.createElement('div');
+    customDiv.className = 'ticker-item';
+    customDiv.style.borderBottom = '1px solid rgba(34,211,238,0.3)';
+    customDiv.style.background = 'rgba(34,211,238,0.04)';
+    customDiv.onclick = () => selectTicker({ sym: f, name: 'Custom', spot: 100, iv: 50, ivr: 50 });
+    customDiv.innerHTML = `
+      <div class="ticker-info">
+        <span class="ticker-sym">＋ Use ${f}</span>
+        <span class="ticker-name">Pull live data from Yahoo</span>
+      </div>
+      <div class="ticker-meta"><span style="color:#22d3ee;font-size:18px;">→</span></div>
+    `;
+    list.appendChild(customDiv);
+  }
+  if (matches.length === 0 && !isTickerLike) {
+    list.innerHTML += '<div class="ticker-empty">Type a ticker symbol to add it.</div>';
+    return;
+  }
+  matches.forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'ticker-item';
+    div.onclick = () => selectTicker(t);
+    const ivrColor = t.ivr < 30 ? '#22c55e' : t.ivr < 70 ? '#fbbf24' : '#ef4444';
+    const ivrLabel = t.ivr < 30 ? 'CHEAP' : t.ivr < 70 ? 'FAIR' : 'PRICEY';
+    div.innerHTML = `
+      <div class="ticker-info">
+        <span class="ticker-sym">${t.sym}</span>
+        <span class="ticker-name">${t.name}</span>
+      </div>
+      <div class="ticker-meta">
+        <span class="ticker-spot">$${t.spot.toFixed(2)}</span>
+        <span style="font-size:10px;color:${ivrColor};font-weight:700;">IVR ${t.ivr} · ${ivrLabel}</span>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function openTickerPicker() {
+  document.getElementById('tickerSearch').value = '';
+  renderTickerList();
+  document.getElementById('tickerModal').classList.add('open');
+  setTimeout(() => document.getElementById('tickerSearch').focus(), 100);
+}
+
+function closeTickerPicker() {
+  document.getElementById('tickerModal').classList.remove('open');
+}
+
+// =============================================================================
+//  EVENT WIRING
+// =============================================================================
+
+document.getElementById('editExp').addEventListener('change', () => { updatePreview(); applyLiveEdit(); });
+document.getElementById('editExp').addEventListener('input', () => { updatePreview(); applyLiveEdit(); });
+document.getElementById('strikeWheel').addEventListener('scroll', updateWheelHighlight);
+document.getElementById('tickerSearch').addEventListener('input', e => renderTickerList(e.target.value));
+document.getElementById('tickerModal').addEventListener('click', e => {
+  if (e.target.id === 'tickerModal') closeTickerPicker();
+});
+// Generate default LEAPS comparison rows centered around a given spot.
+// ITM-biased since most LEAPS buyers want delta exposure with intrinsic value.
+function regenerateRowsForSpot(spot) {
+  const step = strikeStep(spot);
+  const round = (mult) => {
+    const raw = spot * mult;
+    return Math.max(step, Math.round(raw / step) * step);
+  };
+  // Pull expiration unix values that actually exist
+  const exps = liveData.expirations.length >= 5 ? liveData.expirations : FALLBACK_EXPIRATIONS;
+  return [
+    { expUnix: exps[0].unix,                       strike: round(0.95) },  // 5% ITM, shortest
+    { expUnix: exps[1]?.unix || exps[0].unix,      strike: round(0.90) },  // 10% ITM
+    { expUnix: exps[1]?.unix || exps[0].unix,      strike: round(1.00) },  // ATM
+    { expUnix: exps[1]?.unix || exps[0].unix,      strike: round(1.10) },  // 10% OTM
+    { expUnix: exps[2]?.unix || exps[1]?.unix || exps[0].unix, strike: round(0.85) }, // 15% ITM
+    { expUnix: exps[3]?.unix || exps[2]?.unix || exps[0].unix, strike: round(0.95) }, // 5% ITM, longer
+    { expUnix: exps[3]?.unix || exps[2]?.unix || exps[0].unix, strike: round(1.00) }, // ATM, longer
+    { expUnix: (exps[4] || exps[3] || exps[2] || exps[0]).unix, strike: round(0.85) }, // 15% ITM, longest
+  ];
+}
+
+// Spot input: 'input' for live math recalc; 'change' (blur/Enter) for strike regen
+let lastCommittedSpot = parseFloat(document.getElementById('spot').value) || 450;
+document.getElementById('spot').addEventListener('input', render);
+document.getElementById('spot').addEventListener('change', () => {
+  const newSpot = parseFloat(document.getElementById('spot').value);
+  if (!newSpot || newSpot <= 0) return;
+  // Always regenerate rows when spot is manually changed - gives a sensible
+  // ITM-biased default around the new spot. Real screenshot data is preserved
+  // in liveData.chains so users won't lose any imported chain.
+  if (Math.abs(newSpot - lastCommittedSpot) > 0.5) {
+    rows = regenerateRowsForSpot(newSpot);
+    render();
+  }
+  lastCommittedSpot = newSpot;
+});
+// Track manual IVR override — when user types in IVR field, stop auto-computing from IV
+let ivRankManuallySet = false;
+
+document.getElementById('iv').addEventListener('input', () => {
+  const iv = parseFloat(document.getElementById('iv').value);
+  if (!isNaN(iv) && iv > 0 && !ivRankManuallySet) {
+    const sym = liveData.symbol;
+    document.getElementById('ivRank').value = computeIvRank(iv, sym);
+  }
+  render();
+});
+document.getElementById('ivRank').addEventListener('input', () => {
+  ivRankManuallySet = true;
+  render();
+});
+document.getElementById('sweepExp').addEventListener('change', () => {
+  const expUnix = parseInt(document.getElementById('sweepExp').value);
+  if (expUnix && !liveData.chains[expUnix] && liveData.symbol) {
+    fetchAndCacheChain(liveData.symbol, expUnix);
+  }
+  render();
+});
+document.getElementById('sweepRange').addEventListener('change', render);
+document.getElementById('sellSweepExp').addEventListener('change', render);
+document.getElementById('sellSweepRange').addEventListener('change', render);
+document.getElementById('expectedGrowth').addEventListener('input', render);
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target.id === 'modal') closeEdit();
+});
+
+// =============================================================================
+//  INIT
+// =============================================================================
+
+populateExpirationDropdowns();
+populateSellExpirationDropdowns();
+render();
+
+// Fire off initial fetches for default TSLA
+(async () => {
+  const quote = await fetchQuote('TSLA');
+  if (quote && quote.spot) {
+    applyTickerDataLocal('TSLA', quote.spot, 55, 45);
+    render();
+  }
+  await loadTickerChain('TSLA');
+  render();
+})();
+
+</script>
+</body>
+</html>
