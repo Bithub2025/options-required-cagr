@@ -168,24 +168,25 @@ body {
 
 /* Tabs */
 .tabs {
-  display: flex; gap: 3px;
+  display: flex; gap: 2px;
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 10px;
-  padding: 3px;
+  padding: 2px;
   margin-bottom: 10px;
 }
 .tab {
   flex: 1; background: transparent; border: 0;
   color: #8a92a5; font-family: inherit;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
-  padding: 7px 4px; border-radius: 8px; cursor: pointer;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
+  padding: 6px 2px; border-radius: 8px; cursor: pointer;
   transition: all 0.15s;
   min-width: 0;
 }
 .tab.on { background: #22d3ee; color: #000; }
 .tab.on.sell { background: #ec4899; color: #fff; }
-.tab .hint { display: block; font-size: 8px; font-weight: 500; opacity: 0.7; margin-top: 1px; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab.on.roi { background: #a78bfa; color: #000; }
+.tab .hint { display: block; font-size: 7.5px; font-weight: 500; opacity: 0.7; margin-top: 1px; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Card */
 .card {
@@ -398,6 +399,75 @@ body {
 .lev-cell {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 700; color: #8b5cf6;
+}
+
+/* ROI Calc mode — purple theme, calls/puts toggle */
+.roi-mode .thead {
+  background: #6d28d9;
+}
+.roi-mode.sweep .thead, .roi-mode.sweep .row {
+  grid-template-columns: 70px 56px 56px 56px 68px;
+  gap: 3px; padding: 0 6px;
+}
+.roi-mode.sweep .thead { height: 38px; }
+.roi-mode.sweep .row {
+  height: 48px;
+  font-size: 11px;
+  align-items: center;
+}
+.roi-mode.sweep .row .strike { gap: 0; }
+.roi-mode.sweep .row .strike-val { font-size: 12px; }
+.roi-mode.sweep .row .prem-val { font-size: 9.5px; color: #16a34a; }
+.roi-mode.sweep .row .pct-val { font-size: 8.5px; color: #6d28d9; font-weight: 600; }
+.roi-mode.sweep .scroll-body {
+  max-height: 60vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.roi-side-toggle {
+  display: flex;
+  gap: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid #e5ebf2;
+  border-radius: 8px;
+  padding: 3px;
+  margin: 10px 12px 8px;
+}
+.roi-side {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  color: #5a6478;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 7px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.roi-side.on { background: #6d28d9; color: #fff; }
+.roi-side.on[data-roiside="put"] { background: #dc2626; }
+.roi-controls input[type="number"], .roi-controls input[type="date"] {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #1a2230;
+  outline: none;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.roi-controls input:focus {
+  border-color: #6d28d9;
+}
+.profit-cell {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
 }
 
 /* Sweep controls */
@@ -645,7 +715,7 @@ body {
     </button>
     <button class="tab" data-mode="sweep" onclick="setMode('sweep')">
       Sweep
-      <span class="hint">buy chain</span>
+      <span class="hint">chain</span>
     </button>
     <button class="tab" data-mode="sellPicks" onclick="setMode('sellPicks')">
       Sell Picks
@@ -653,7 +723,11 @@ body {
     </button>
     <button class="tab" data-mode="sellSweep" onclick="setMode('sellSweep')">
       Sell Sweep
-      <span class="hint">sell chain</span>
+      <span class="hint">chain</span>
+    </button>
+    <button class="tab" data-mode="roi" onclick="setMode('roi')">
+      ROI Calc
+      <span class="hint">target</span>
     </button>
   </div>
 
@@ -761,6 +835,52 @@ body {
         <div class="th right">CAGR-Lose</div>
       </div>
       <div class="scroll-body" id="tbodySS"></div>
+    </div>
+  </div>
+
+  <!-- ROI CALC MODE -->
+  <div id="roiView" class="sweep roi-mode" style="display:none;">
+    <div class="card">
+      <div class="card-title">
+        <span>ROI at Target</span>
+        <span class="sub">$<span id="basePxROI">450.00</span> base</span>
+      </div>
+      <div class="roi-side-toggle">
+        <button class="roi-side on" data-roiside="call" onclick="setRoiSide('call')">CALLS</button>
+        <button class="roi-side" data-roiside="put" onclick="setRoiSide('put')">PUTS</button>
+      </div>
+      <div class="sweep-controls roi-controls">
+        <div class="sweep-pick">
+          <label>Target Price</label>
+          <input type="number" id="roiTargetPrice" inputmode="decimal" step="any" placeholder="e.g. 500" />
+        </div>
+        <div class="sweep-pick">
+          <label>Target Date</label>
+          <input type="date" id="roiTargetDate" />
+        </div>
+      </div>
+      <div class="sweep-controls">
+        <div class="sweep-pick">
+          <label>Expiration</label>
+          <select id="roiExp"></select>
+        </div>
+        <div class="sweep-pick">
+          <label>Range ± ATM</label>
+          <select id="roiRange">
+            <option value="0.5">±50%</option>
+            <option value="0.35" selected>±35%</option>
+            <option value="0.20">±20%</option>
+          </select>
+        </div>
+      </div>
+      <div class="thead roi-head">
+        <div class="th">Strike / Prem</div>
+        <div class="th">Value</div>
+        <div class="th">$ Profit</div>
+        <div class="th">ROI</div>
+        <div class="th right">ROI/yr</div>
+      </div>
+      <div class="scroll-body" id="tbodyROI"></div>
     </div>
   </div>
 
@@ -968,6 +1088,19 @@ function generateSellDefaultRows(spot) {
 let sellRows = generateSellDefaultRows(450);
 
 // =============================================================================
+//  ROI CALC STATE (independent)
+// =============================================================================
+
+let liveDataROI = {
+  symbol: 'TSLA',
+  expirations: SELL_FALLBACK_EXPIRATIONS.slice(),
+  chains: {},
+  hasRealExpirations: false,
+  source: 'mock',
+};
+let roiSide = 'call'; // 'call' or 'put'
+
+// =============================================================================
 //  MATH HELPERS (unchanged)
 // =============================================================================
 
@@ -980,9 +1113,18 @@ function ncdf(x) {
   return 0.5*(1.0+sign*y);
 }
 function bsCall(S, K, T, r, sigma) {
+  if (T <= 0) return Math.max(0, S - K);
+  if (sigma <= 0.001) return Math.max(0, S - K * Math.exp(-r*T));
   const d1 = (Math.log(S/K) + (r+sigma*sigma/2)*T)/(sigma*Math.sqrt(T));
   const d2 = d1 - sigma*Math.sqrt(T);
   return S*ncdf(d1) - K*Math.exp(-r*T)*ncdf(d2);
+}
+function bsPut(S, K, T, r, sigma) {
+  if (T <= 0) return Math.max(0, K - S);
+  if (sigma <= 0.001) return Math.max(0, K * Math.exp(-r*T) - S);
+  const d1 = (Math.log(S/K) + (r+sigma*sigma/2)*T)/(sigma*Math.sqrt(T));
+  const d2 = d1 - sigma*Math.sqrt(T);
+  return K*Math.exp(-r*T)*ncdf(-d2) - S*ncdf(-d1);
 }
 function strikeStep(spot) {
   if (spot < 5) return 0.50;
@@ -1197,6 +1339,17 @@ function getRealContractSell(unix, strike, side = 'call') {
   return contract;
 }
 
+// ROI-side equivalent — reads from liveDataROI
+function getRealContractROI(unix, strike, side = 'call') {
+  const chain = liveDataROI.chains[unix];
+  if (!chain) return null;
+  const list = side === 'call' ? chain.calls : chain.puts;
+  if (!list) return null;
+  const contract = list.find(c => Math.abs(c.strike - strike) < 0.01);
+  if (!contract) return null;
+  return contract;
+}
+
 // Best estimate of premium for (unix, strike), now always BS so IV slider works.
 // Effective IV per strike = (chain's per-strike IV) × (user IV / chain ATM IV),
 // preserving volatility smile while making IV slider move all prices proportionally.
@@ -1240,22 +1393,42 @@ function getPremium(spot, sigma, r, unix, strike, side = 'call') {
   };
 }
 
-// Sell-side version — same math, reads from liveDataSell
+// Sell-side version — uses REAL chain prices when available (sellers want
+// accurate market premiums, not IV-slider-scaled BS estimates). Falls back
+// to BS only when no real contract data exists for the strike.
 function getPremiumSell(spot, sigma, r, unix, strike, side = 'call') {
   const contract = getRealContractSell(unix, strike, side);
   const chain = liveDataSell.chains[unix];
   const days = daysUntilUnix(unix);
   const T = days / 365;
 
+  // If we have a real contract with a usable last price, USE IT.
+  if (contract && contract.last > 0.01) {
+    let delta;
+    if (contract.delta != null) {
+      delta = contract.delta;
+    } else {
+      // Derive delta from BS using the contract's own IV if available, else user's
+      const sigmaForDelta = (contract.iv > 0.01) ? contract.iv : sigma;
+      const d1 = (Math.log(spot/strike) + (r + sigmaForDelta*sigmaForDelta/2)*T) / (sigmaForDelta*Math.sqrt(T));
+      delta = ncdf(d1);
+    }
+    return {
+      premium: contract.last,
+      isReal: true,
+      delta,
+      iv: contract.iv > 0 ? contract.iv : sigma,
+    };
+  }
+
+  // No real contract — fall back to BS using effective sigma (smile-preserved if chain ATM IV known)
   let effectiveSigma = sigma;
   let hasChainIv = false;
-
   if (contract && contract.iv > 0 && chain && chain.chainAtmIv && chain.chainAtmIv > 0.05) {
     const scaleFactor = sigma / chain.chainAtmIv;
     effectiveSigma = contract.iv * scaleFactor;
     hasChainIv = true;
   }
-
   if (effectiveSigma <= 0.01) effectiveSigma = 0.05;
 
   const fn = side === 'call' ? bsCall : null;
@@ -1347,19 +1520,20 @@ function applyScreenshotData(data) {
 
   // Determine which side to populate based on current tab
   const isSellMode = mode === 'sellPicks' || mode === 'sellSweep';
-  const target = isSellMode ? liveDataSell : liveData;
+  const isRoiMode = mode === 'roi';
+  const target = isRoiMode ? liveDataROI : (isSellMode ? liveDataSell : liveData);
 
   // Reset manual IVR flag — new chain should set its own IVR
   ivRankManuallySet = false;
 
-  // Update ticker if provided (buy side updates display; sell side keeps in state only)
+  // Update ticker if provided (buy side updates display; sell/roi sides keep in state only)
   if (ticker && ticker !== 'UNKNOWN') {
-    if (!isSellMode) {
+    if (!isSellMode && !isRoiMode) {
       document.getElementById('tickerDisplay').textContent = ticker;
     }
     target.symbol = ticker;
   }
-  // Update spot (shared between sides since it's the underlying stock)
+  // Update spot (shared since it's the underlying stock)
   if (spot && spot > 0) {
     document.getElementById('spot').value = spot.toFixed(2);
     lastCommittedSpot = spot;
@@ -1393,7 +1567,8 @@ function applyScreenshotData(data) {
         target.expirations.push({ unix: expUnix, label });
         target.expirations.sort((a, b) => a.unix - b.unix);
       }
-      if (isSellMode) populateSellExpirationDropdowns();
+      if (isRoiMode) populateRoiExpirationDropdowns();
+      else if (isSellMode) populateSellExpirationDropdowns();
       else populateExpirationDropdowns();
     }
   }
@@ -1424,7 +1599,17 @@ function applyScreenshotData(data) {
   target.source = 'screenshot';
 
   // Replace rows on whichever side is active
-  if (isSellMode) {
+  if (isRoiMode) {
+    document.getElementById('roiExp').value = expUnix;
+    // Seed target price/date if blank: price = spot, date = halfway to expiration
+    if (!document.getElementById('roiTargetPrice').value) {
+      document.getElementById('roiTargetPrice').value = (spot || 100).toFixed(2);
+    }
+    if (!document.getElementById('roiTargetDate').value) {
+      const halfway = new Date((Date.now() + expUnix * 1000) / 2);
+      document.getElementById('roiTargetDate').value = halfway.toISOString().slice(0, 10);
+    }
+  } else if (isSellMode) {
     sellRows = calls.map(c => ({ expUnix, strike: c.strike }));
     document.getElementById('sellSweepExp').value = expUnix;
   } else {
@@ -1432,15 +1617,15 @@ function applyScreenshotData(data) {
     document.getElementById('sweepExp').value = expUnix;
   }
 
-  // Update live pill (only on buy side since sell doesn't have its own pill)
-  if (!isSellMode) {
+  // Update live pill (only on buy side since sell/roi don't have their own pill)
+  if (!isSellMode && !isRoiMode) {
     const pill = document.getElementById('livePill');
     pill.textContent = 'SHOT';
     pill.className = 'live-pill live';
     pill.title = 'Data extracted from uploaded screenshot';
   }
 
-  const sideLabel = isSellMode ? ' (sell side)' : '';
+  const sideLabel = isRoiMode ? ' (ROI Calc)' : (isSellMode ? ' (sell side)' : '');
   setUploadStatus(`✓ Loaded ${strikes.length} strikes for ${ticker || 'ticker'}${sideLabel} · ${target.expirations.find(e => e.unix === expUnix)?.label || ''}${medianIv ? ' · IV auto-set to ' + Math.round(medianIv < 2 ? medianIv * 100 : medianIv) + '%' : ''}`, 'success');
 
   render();
@@ -1533,6 +1718,28 @@ function populateSellExpirationDropdowns() {
 function getSellExpLabel(unix) {
   const exp = liveDataSell.expirations.find(e => e.unix === unix);
   return exp ? exp.label : new Date(unix * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+// ROI side equivalent
+function populateRoiExpirationDropdowns() {
+  const sel = document.getElementById('roiExp');
+  if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = '';
+  liveDataROI.expirations.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.unix;
+    opt.textContent = e.label;
+    sel.appendChild(opt);
+  });
+  if (liveDataROI.expirations.length > 0) {
+    if (prev && liveDataROI.expirations.find(e => e.unix === parseInt(prev))) {
+      sel.value = prev;
+    } else {
+      const mid = Math.floor(liveDataROI.expirations.length / 2);
+      sel.value = liveDataROI.expirations[mid].unix;
+    }
+  }
 }
 
 // =============================================================================
@@ -1825,6 +2032,135 @@ function renderSellSweep(spot, sigma, r) {
 }
 
 // =============================================================================
+//  RENDER — ROI CALC (target price/date payoff)
+// =============================================================================
+
+function setRoiSide(side) {
+  roiSide = side;
+  document.querySelectorAll('.roi-side').forEach(b => b.classList.toggle('on', b.dataset.roiside === side));
+  render();
+}
+
+function renderROI(spot, sigma, r) {
+  document.getElementById('basePxROI').textContent = spot.toFixed(2);
+  const expUnix = parseInt(document.getElementById('roiExp').value);
+  const rangePct = parseFloat(document.getElementById('roiRange').value);
+  const targetPrice = parseFloat(document.getElementById('roiTargetPrice').value) || spot;
+  const targetDateStr = document.getElementById('roiTargetDate').value;
+  if (!expUnix) {
+    document.getElementById('tbodyROI').innerHTML = '<div style="padding:20px;text-align:center;color:#5a6478;">Loading expirations…</div>';
+    return;
+  }
+
+  // Days from now to target date (for annualization)
+  let targetDays;
+  let timeRemainingAtTarget; // years from target date to expiration
+  if (targetDateStr) {
+    const targetUnix = Math.floor(new Date(targetDateStr + 'T16:00:00Z').getTime() / 1000);
+    targetDays = Math.max(1, Math.round((targetUnix - Date.now() / 1000) / 86400));
+    timeRemainingAtTarget = Math.max(0, (expUnix - targetUnix) / (365 * 86400));
+  } else {
+    // Default: assume target date is expiration
+    targetDays = daysUntilUnix(expUnix);
+    timeRemainingAtTarget = 0;
+  }
+
+  const step = strikeStep(spot);
+  const atm = Math.round(spot / step) * step;
+  const minStrike = Math.max(step, spot * (1 - rangePct));
+  const maxStrike = spot * (1 + rangePct);
+  const chain = liveDataROI.chains[expUnix];
+
+  let strikeList;
+  if (chain && chain.calls && chain.calls.length > 0) {
+    const src = roiSide === 'call' ? chain.calls : chain.puts;
+    strikeList = src
+      .filter(c => c.strike >= minStrike && c.strike <= maxStrike)
+      .map(c => c.strike)
+      .sort((a, b) => a - b);
+  } else {
+    strikeList = [];
+    const minK = Math.round(minStrike / step) * step;
+    const maxK = Math.round(maxStrike / step) * step;
+    for (let K = minK; K <= maxK; K += step) strikeList.push(+K.toFixed(2));
+  }
+
+  const computed = strikeList.map(K => {
+    // Get premium paid (use real if available)
+    const contract = getRealContractROI(expUnix, K, roiSide);
+    let premiumPaid;
+    let strikeIv;
+    let hasReal = false;
+    if (contract && contract.last > 0.01) {
+      premiumPaid = contract.last;
+      strikeIv = contract.iv > 0.01 ? contract.iv : sigma;
+      hasReal = true;
+    } else {
+      // BS estimate for current premium
+      const days = daysUntilUnix(expUnix);
+      const T = days / 365;
+      strikeIv = sigma;
+      premiumPaid = roiSide === 'call' ? bsCall(spot, K, T, r, sigma) : bsPut(spot, K, T, r, sigma);
+    }
+
+    // Value at target = BS at (target price, time remaining from target date to expiration)
+    const valueAtTarget = roiSide === 'call'
+      ? bsCall(targetPrice, K, timeRemainingAtTarget, r, strikeIv)
+      : bsPut(targetPrice, K, timeRemainingAtTarget, r, strikeIv);
+
+    const profit = valueAtTarget - premiumPaid;
+    const roi = premiumPaid > 0.01 ? profit / premiumPaid : 0;
+    // Simple annualized ROI
+    const roiAnn = roi * (365 / targetDays);
+
+    return { K, premiumPaid, valueAtTarget, profit, roi, roiAnn, iv: strikeIv, hasReal };
+  });
+
+  if (computed.length === 0) {
+    document.getElementById('tbodyROI').innerHTML = '<div style="padding:20px;text-align:center;color:#5a6478;">No strikes in range</div>';
+    return;
+  }
+
+  const rois = computed.map(c => c.roi);
+  const minR = Math.min(...rois), maxR = Math.max(...rois);
+
+  const tbody = document.getElementById('tbodyROI');
+  tbody.innerHTML = '';
+  if (!chain) {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'padding:6px 10px;text-align:center;font-size:10.5px;color:#fbbf24;background:#fef3c7;border-bottom:1px solid #e5ebf2;';
+    banner.textContent = '⌛ No chain loaded yet — showing Black-Scholes estimates';
+    tbody.appendChild(banner);
+  }
+  computed.forEach((c) => {
+    // ROI color: high = green (buyer wants high ROI), low = red
+    const t = 1 - (c.roi - minR) / (maxR - minR || 1);
+    const color = colorFor(t);
+    const profitColor = c.profit >= 0 ? '#16a34a' : '#dc2626';
+    const div = document.createElement('div');
+    div.className = 'row';
+    div.innerHTML = `
+      <div class="strike">
+        <span class="strike-val">${c.K}</span>
+        <span class="prem-val">$${c.premiumPaid.toFixed(2)}${c.hasReal ? '' : '<span style="color:#94a3b8;font-weight:500;"> est</span>'}</span>
+        <span class="pct-val">${((c.premiumPaid / c.K) * 100).toFixed(1)}%</span>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-weight:600;color:#1a2230;font-size:11px;">$${c.valueAtTarget.toFixed(2)}</div>
+      <div class="profit-cell" style="color:${profitColor};font-size:11px;">${c.profit >= 0 ? '+' : ''}$${c.profit.toFixed(2)}</div>
+      <div class="cagr-cell">
+        <div class="cagr-bg" style="background:${color};"></div>
+        <span class="cagr-val">${(c.roi * 100).toFixed(0)}%</span>
+      </div>
+      <div class="cagr-cell">
+        <div class="cagr-bg" style="background:${color};"></div>
+        <span class="cagr-val">${(c.roiAnn * 100).toFixed(0)}%</span>
+      </div>
+    `;
+    tbody.appendChild(div);
+  });
+}
+
+// =============================================================================
 //  RENDER — SWEEP (full chain)
 // =============================================================================
 
@@ -1951,18 +2287,20 @@ function setMode(m) {
   document.querySelectorAll('.tab').forEach(t => {
     const isOn = t.dataset.mode === m;
     t.classList.toggle('on', isOn);
-    // Pink theme for sell tabs when active
     t.classList.toggle('sell', isOn && (m === 'sellPicks' || m === 'sellSweep'));
+    t.classList.toggle('roi', isOn && m === 'roi');
   });
   document.getElementById('curatedView').style.display = m === 'curated' ? '' : 'none';
   document.getElementById('sweepView').style.display = m === 'sweep' ? '' : 'none';
   document.getElementById('sellPicksView').style.display = m === 'sellPicks' ? '' : 'none';
   document.getElementById('sellSweepView').style.display = m === 'sellSweep' ? '' : 'none';
+  document.getElementById('roiView').style.display = m === 'roi' ? '' : 'none';
   const notes = {
     curated: 'Tap any row to edit · BALANCED = highest leverage that hits your target',
     sweep: 'Full chain · BALANCED = highest leverage with CAGR under target · ATM marked',
     sellPicks: 'Tap any row to edit · SAFEST = most premium where CAGR-to-lose ≥ target',
     sellSweep: 'Full chain · SAFEST = most premium where CAGR-to-lose ≥ target · ATM marked',
+    roi: 'Enter target price + date → see what each option pays back · green = highest ROI',
   };
   document.getElementById('footNote').textContent = notes[m] || notes.curated;
   render();
@@ -1978,6 +2316,7 @@ function render() {
   else if (mode === 'sweep') renderSweep(spot, sigma, r);
   else if (mode === 'sellPicks') renderSellPicks(spot, sigma, r);
   else if (mode === 'sellSweep') renderSellSweep(spot, sigma, r);
+  else if (mode === 'roi') renderROI(spot, sigma, r);
 }
 
 // =============================================================================
@@ -2410,6 +2749,10 @@ document.getElementById('sweepExp').addEventListener('change', () => {
 document.getElementById('sweepRange').addEventListener('change', render);
 document.getElementById('sellSweepExp').addEventListener('change', render);
 document.getElementById('sellSweepRange').addEventListener('change', render);
+document.getElementById('roiExp').addEventListener('change', render);
+document.getElementById('roiRange').addEventListener('change', render);
+document.getElementById('roiTargetPrice').addEventListener('input', render);
+document.getElementById('roiTargetDate').addEventListener('change', render);
 document.getElementById('expectedGrowth').addEventListener('input', render);
 document.getElementById('modal').addEventListener('click', e => {
   if (e.target.id === 'modal') closeEdit();
@@ -2421,6 +2764,7 @@ document.getElementById('modal').addEventListener('click', e => {
 
 populateExpirationDropdowns();
 populateSellExpirationDropdowns();
+populateRoiExpirationDropdowns();
 render();
 
 // Fire off initial fetches for default TSLA
